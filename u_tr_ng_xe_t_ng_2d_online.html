@@ -1,0 +1,2875 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Đấu Trường Xe Tăng 2D - Tank Maze Online</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Chakra+Petch:wght@500;600;700;800&family=Inter:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Chakra Petch', 'Inter', sans-serif;
+            background-color: #0b1120;
+            color: #f8fafc;
+            overflow: hidden;
+            user-select: none;
+            touch-action: none;
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.84);
+            backdrop-filter: blur(10px);
+            border: 2px solid rgba(148, 163, 184, 0.35);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.65);
+        }
+        .game-btn {
+            background: linear-gradient(180deg, #1e293b 0%, #0f172a 100%);
+            border: 2px solid #475569;
+            box-shadow: 0 4px 0 #020617;
+            transition: all 0.15s ease;
+        }
+        .game-btn:hover {
+            border-color: #38bdf8;
+            transform: translateY(-1px);
+            box-shadow: 0 5px 0 #020617, 0 0 15px rgba(56, 189, 248, 0.35);
+        }
+        .game-btn:active {
+            transform: translateY(3px);
+            box-shadow: 0 1px 0 #020617;
+        }
+        .match-btn-oval {
+            background: radial-gradient(circle at 50% 30%, #f59e0b 0%, #ea580c 60%, #9a3412 100%);
+            border: 4px solid #fde047;
+            border-radius: 9999px;
+            box-shadow: 0 8px 0 #7c2d12, 0 0 35px rgba(245, 158, 11, 0.65);
+            transition: all 0.15s ease;
+        }
+        .match-btn-oval:hover {
+            transform: scale(1.03) translateY(-2px);
+            box-shadow: 0 10px 0 #7c2d12, 0 0 50px rgba(253, 224, 71, 0.85);
+        }
+        .match-btn-oval:active {
+            transform: scale(0.98) translateY(4px);
+            box-shadow: 0 3px 0 #7c2d12;
+        }
+        /* Scrollbar tùy chỉnh */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.6);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #475569;
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #38bdf8;
+        }
+    </style>
+</head>
+<body class="w-screen h-screen relative overflow-hidden">
+
+    <!-- CANVAS BACKGROUND XE TĂNG HOẠT HÌNH SỐNG ĐỘNG -->
+    <canvas id="bgCanvas" class="fixed inset-0 w-full h-full pointer-events-none z-0"></canvas>
+
+    <!-- THÔNG BÁO NỔI (TOAST NOTIFICATION) -->
+    <div id="toast-container" class="fixed top-4 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center space-y-2 pointer-events-none"></div>
+
+    <!-- =========================================================================
+         MÀN HÌNH MỞ ĐẦU BẮT BUỘC: TẠO TÀI KHOẢN MỚI HOẶC ĐĂNG NHẬP
+         ========================================================================= -->
+    <div id="auth-screen" class="relative z-30 w-full h-full flex items-center justify-center p-4">
+        <div class="glass-panel max-w-md w-full rounded-2xl p-6 border-2 border-amber-400/90 shadow-[0_0_50px_rgba(245,158,11,0.3)] space-y-5">
+            <!-- Logo & Tiêu đề -->
+            <div class="text-center space-y-1">
+                <div class="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-gradient-to-br from-amber-400 to-orange-600 text-3xl shadow-lg border-2 border-yellow-200 mb-1">
+                    🚜
+                </div>
+                <h1 class="text-2xl sm:text-3xl font-black tracking-wider uppercase bg-gradient-to-r from-amber-300 via-orange-400 to-yellow-200 bg-clip-text text-transparent">
+                    TANK MAZE ROYALE
+                </h1>
+                <p class="text-xs text-slate-300">Khởi tạo chiến binh hoặc đăng nhập tài khoản để tham chiến</p>
+            </div>
+
+            <!-- Chuyển đổi Tạo Tài Khoản (Mặc định lần đầu) & Đăng Nhập -->
+            <div class="grid grid-cols-2 bg-slate-900/90 p-1 rounded-xl border border-slate-700 text-xs font-extrabold uppercase">
+                <button id="tab-auth-register" onclick="window.switchAuthMode('register')" class="py-2.5 rounded-lg bg-emerald-500 text-slate-950 shadow transition">
+                    1. Tạo Tài Khoản
+                </button>
+                <button id="tab-auth-login" onclick="window.switchAuthMode('login')" class="py-2.5 rounded-lg text-slate-300 hover:text-white transition">
+                    2. Đăng Nhập
+                </button>
+            </div>
+
+            <!-- FORM 1: ĐĂNG KÝ TÀI KHOẢN MỚI -->
+            <div id="form-register" class="space-y-3.5">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-300 mb-1">
+                        Tên Tài Khoản / Ingame (Viết liền KHÔNG DẤU, A-Z, 0-9):
+                    </label>
+                    <input id="reg-username" type="text" maxlength="14" placeholder="VD: TANKERVN99"
+                        class="w-full bg-slate-900 border-2 border-slate-600 focus:border-emerald-400 rounded-xl px-3.5 py-2.5 text-white font-extrabold uppercase outline-none text-sm">
+                    <p id="reg-name-status" class="text-[11px] mt-1 text-slate-400">Hệ thống sẽ kiểm tra chống trùng tên tự động.</p>
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-300 mb-1">
+                        Mật khẩu bảo vệ tài khoản (Tối thiểu 4 ký tự):
+                    </label>
+                    <input id="reg-password" type="password" maxlength="20" placeholder="Nhập mật khẩu để lần sau đăng nhập..."
+                        class="w-full bg-slate-900 border-2 border-slate-600 focus:border-emerald-400 rounded-xl px-3.5 py-2.5 text-white font-bold outline-none text-sm">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-300 mb-1.5">
+                        Chọn Ảnh Đại Diện (Avatar khởi đầu):
+                    </label>
+                    <div id="reg-avatar-grid" class="grid grid-cols-6 gap-2 bg-slate-900/90 p-2.5 rounded-xl border border-slate-700"></div>
+                </div>
+
+                <button onclick="window.handleRegisterAccount()" class="w-full py-3 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black uppercase tracking-wider shadow-lg text-sm">
+                    ✨ Hoàn Tất Tạo Tài Khoản & Vào Sảnh
+                </button>
+            </div>
+
+            <!-- FORM 2: ĐĂNG NHẬP TÀI KHOẢN ĐÃ CÓ -->
+            <div id="form-login" class="hidden space-y-4">
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-300 mb-1">
+                        Tên Tài Khoản Ingame (Không dấu):
+                    </label>
+                    <input id="login-username" type="text" maxlength="14" placeholder="Nhập tên tài khoản của bạn..."
+                        class="w-full bg-slate-900 border-2 border-slate-600 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-white font-extrabold uppercase outline-none text-sm">
+                </div>
+
+                <div>
+                    <label class="block text-xs font-bold uppercase text-slate-300 mb-1">
+                        Mật Khẩu:
+                    </label>
+                    <input id="login-password" type="password" maxlength="20" placeholder="Nhập mật khẩu..."
+                        class="w-full bg-slate-900 border-2 border-slate-600 focus:border-amber-400 rounded-xl px-3.5 py-2.5 text-white font-bold outline-none text-sm">
+                </div>
+
+                <button onclick="window.handleLoginAccount()" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 hover:from-amber-400 hover:to-orange-500 text-slate-950 font-black uppercase tracking-wider shadow-lg text-sm">
+                    🔑 Đăng Nhập Vào Tài Khoản
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+         MÀN HÌNH SẢNH CHÍNH (THIẾT KẾ THEO ĐÚNG LAYOUT HÌNH 3 CỦA NGƯỜI DÙNG)
+         ========================================================================= -->
+    <div id="lobby-screen" class="hidden relative z-10 w-full h-full flex flex-col justify-between p-3 sm:p-6 max-w-7xl mx-auto">
+
+        <!-- HÀNG TRÊN: GÓC TRÁI (AVATAR + TÊN + HẠNG) | GIỮA (TÊN TRÒ CHƠI) | PHẢI (LỊCH SỬ + BẠN BÈ) -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start">
+
+            <!-- GÓC TRÊN TRÁI: HỒ SƠ NGƯỜI CHƠI (Hình tròn Avatar đè lên khung chữ nhật xanh lá) -->
+            <div class="lg:col-span-4 flex items-center relative">
+                <div onclick="window.openProfileModal()" class="cursor-pointer group flex items-center w-full">
+                    <!-- Vòng tròn Avatar + Khung Top 50 Hình 4 (Hình tròn chỉ tính phần đỏ cam có cánh & ngọc) -->
+                    <div class="relative w-24 h-24 sm:w-28 sm:h-28 flex-shrink-0 z-20 flex items-center justify-center">
+                        <!-- SVG Khung Vinh Danh Top 50 Thế Giới (Hình tròn kiểu Hình 4) -->
+                        <svg id="top50-frame-svg" viewBox="0 0 140 140" class="absolute -inset-3 w-[124%] h-[124%] pointer-events-none drop-shadow-[0_0_10px_rgba(251,146,60,0.8)]">
+                            <defs>
+                                <linearGradient id="wingGradMain" x1="0%" y1="0%" x2="100%" y2="100%">
+                                    <stop offset="0%" id="frame-stop-1" stop-color="#fde047" />
+                                    <stop offset="45%" id="frame-stop-2" stop-color="#f97316" />
+                                    <stop offset="100%" id="frame-stop-3" stop-color="#dc2626" />
+                                </linearGradient>
+                                <radialGradient id="gemOrbGrad" cx="50%" cy="35%" r="60%">
+                                    <stop offset="0%" stop-color="#fca5a5" />
+                                    <stop offset="40%" id="orb-stop-main" stop-color="#ef4444" />
+                                    <stop offset="100%" stop-color="#7f1d1d" />
+                                </radialGradient>
+                            </defs>
+                            <!-- Vòng tròn viền kim loại đỏ cam -->
+                            <circle cx="70" cy="74" r="46" fill="none" stroke="url(#wingGradMain)" stroke-width="6" />
+                            <circle cx="70" cy="74" r="49" fill="none" stroke="#fef08a" stroke-width="1.5" stroke-dasharray="10 4" />
+                            <!-- Hoạ tiết giáp ôm hai bên -->
+                            <path d="M 21 62 L 15 74 L 21 86 L 25 82 L 21 74 L 25 66 Z" fill="url(#wingGradMain)" />
+                            <path d="M 119 62 L 125 74 L 119 86 L 115 82 L 119 74 L 115 66 Z" fill="url(#wingGradMain)" />
+                            <!-- Đôi cánh rực lửa vươn sang 2 bên ở đỉnh trên (Chuẩn Hình 4) -->
+                            <path d="M 70 26 L 35 10 L 14 14 L 32 25 L 18 28 L 44 35 Z" fill="url(#wingGradMain)" stroke="#fef08a" stroke-width="1" />
+                            <path d="M 70 26 L 105 10 L 126 14 L 108 25 L 122 28 L 96 35 Z" fill="url(#wingGradMain)" stroke="#fef08a" stroke-width="1" />
+                            <!-- Mũi nhọn kim cương đỏ hướng xuống dưới ngọc -->
+                            <polygon points="70,45 62,31 70,25 78,31" fill="#dc2626" stroke="#fde047" stroke-width="1" />
+                            <!-- Viên ngọc tròn đỏ cam chính giữa đỉnh -->
+                            <circle cx="70" cy="21" r="11" fill="url(#gemOrbGrad)" stroke="#fde047" stroke-width="2.5" />
+                            <circle cx="67" cy="18" r="2.5" fill="#ffffff" opacity="0.85" />
+                            <!-- Sừng vàng ôm ngọc -->
+                            <path d="M 56 26 Q 70 36 84 26 L 80 34 Q 70 40 60 34 Z" fill="#facc15" />
+                        </svg>
+
+                        <!-- Nền tròn Avatar -->
+                        <div id="avatar-circle-bg" class="w-20 h-20 sm:w-24 sm:h-24 rounded-full bg-emerald-600 border-4 border-emerald-400 flex items-center justify-center text-4xl sm:text-5xl shadow-xl relative overflow-hidden group-hover:scale-105 transition">
+                            <span id="ui-avatar-icon">🐯</span>
+                        </div>
+                        <span class="absolute -bottom-1 right-1 bg-slate-900 text-[10px] px-2 py-0.5 rounded-full border border-emerald-400 text-emerald-300 font-bold z-30">Sửa</span>
+                    </div>
+
+                    <!-- Khung chữ nhật viền xanh lá chứa Tên Ingame & Hạng -->
+                    <div class="glass-panel border-2 border-emerald-500 rounded-xl pl-10 pr-4 py-2.5 -ml-8 flex-1 min-w-0 hover:border-emerald-300 transition">
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center space-x-1.5 min-w-0">
+                                <span id="ui-player-name" class="font-extrabold text-base sm:text-lg text-white truncate">CHƯA ĐĂNG NHẬP</span>
+                                <span id="ui-top-badge" class="hidden px-1.5 py-0.5 text-[11px] font-black rounded bg-gradient-to-r from-amber-500 to-red-600 text-white shadow">#1</span>
+                            </div>
+                            <button onclick="event.stopPropagation(); window.logoutAccount();" title="Đăng xuất / Đổi tài khoản" class="text-[10px] bg-rose-950/90 hover:bg-rose-700 text-rose-200 border border-rose-500/60 px-2 py-0.5 rounded font-bold">
+                                Đổi TK
+                            </button>
+                        </div>
+                        <div class="flex items-center space-x-2 mt-1">
+                            <span id="ui-rank-icon" class="text-lg">🪵</span>
+                            <span id="ui-rank-name" class="text-xs sm:text-sm font-bold text-amber-300 uppercase tracking-wider">Hạng Gỗ</span>
+                        </div>
+                        <!-- Thanh tiến độ lên hạng tiếp theo -->
+                        <div class="mt-1.5 text-[11px] text-slate-300 flex flex-wrap items-center justify-between gap-1">
+                            <span id="ui-rank-progress-text">Thắng bậc này: 0/8</span>
+                            <span id="ui-streak-text" class="text-emerald-400 font-semibold">Chuỗi: 0🔥</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-1">
+                            <div id="ui-rank-bar" class="h-full bg-gradient-to-r from-emerald-400 to-cyan-400 w-0 transition-all duration-300"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- CHÍNH GIỮA TRÊN: TÊN TRÒ CHƠI -->
+            <div class="lg:col-span-4 flex flex-col items-center justify-center">
+                <div class="glass-panel px-6 py-2.5 rounded-xl border-2 border-amber-400/80 text-center shadow-[0_0_25px_rgba(251,191,36,0.25)]">
+                    <h1 class="text-xl sm:text-2xl md:text-3xl font-black tracking-wider uppercase bg-gradient-to-r from-amber-300 via-orange-400 to-yellow-200 bg-clip-text text-transparent">
+                        TANK MAZE ROYALE
+                    </h1>
+                    <p class="text-[11px] text-slate-300 tracking-widest uppercase">Đấu Trường Xe Tăng Trực Tuyến</p>
+                </div>
+            </div>
+
+            <!-- GÓC TRÊN PHẢI: LỊCH SỬ ĐẤU & BẠN BÈ (2 Khung chữ nhật xếp dọc như Hình 3) -->
+            <div class="lg:col-span-4 flex flex-col space-y-2.5 items-stretch sm:items-end">
+                <button onclick="window.openHistoryModal()" class="game-btn w-full sm:w-64 px-5 py-2.5 rounded-xl flex items-center justify-between text-left">
+                    <div class="flex items-center space-x-3">
+                        <span class="text-xl">📜</span>
+                        <div>
+                            <div class="font-bold text-sm sm:text-base text-white uppercase">Lịch Sử Đấu</div>
+                            <div id="ui-total-wins-sub" class="text-[11px] text-amber-300">Tổng thắng: 0 ván</div>
+                        </div>
+                    </div>
+                    <span class="text-slate-400 text-sm">▶</span>
+                </button>
+
+                <button onclick="window.openFriendsModal()" class="game-btn w-full sm:w-64 px-5 py-2.5 rounded-xl flex items-center justify-between text-left">
+                    <div class="flex items-center space-x-3">
+                        <span class="text-xl">👥</span>
+                        <div>
+                            <div class="font-bold text-sm sm:text-base text-white uppercase">Bạn Bè</div>
+                            <div id="ui-friends-count-sub" class="text-[11px] text-emerald-400">Đang kết nối...</div>
+                        </div>
+                    </div>
+                    <span class="text-slate-400 text-sm">▶</span>
+                </button>
+            </div>
+        </div>
+
+        <!-- HÀNG GIỮA & DƯỚI: BẢNG XẾP HẠNG BÊN TRÁI | NÚT BẮT ĐẦU GHÉP HÌNH BẦU DỤC GIỮA -->
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-4 items-center my-auto py-2">
+
+            <!-- GÓC DƯỚI TRÁI: BẢNG XẾP HẠNG (Bạn bè / Toàn thế giới) -->
+            <div class="lg:col-span-5 glass-panel rounded-2xl p-3.5 border-2 border-slate-600/80 flex flex-col h-72 sm:h-80">
+                <div class="flex items-center justify-between border-b border-slate-700 pb-2 mb-2">
+                    <div class="flex items-center space-x-2">
+                        <span class="text-lg">🏆</span>
+                        <h2 class="font-extrabold text-sm sm:text-base uppercase tracking-wider text-amber-300">Bảng Xếp Hạng</h2>
+                    </div>
+                    <div class="flex bg-slate-900 p-0.5 rounded-lg border border-slate-700 text-xs">
+                        <button id="tab-lb-world" onclick="window.switchLeaderboardTab('world')" class="px-2.5 py-1 rounded-md bg-amber-500 text-slate-950 font-bold transition">Thế Giới</button>
+                        <button id="tab-lb-friends" onclick="window.switchLeaderboardTab('friends')" class="px-2.5 py-1 rounded-md text-slate-300 hover:text-white font-semibold transition">Bạn Bè</button>
+                    </div>
+                </div>
+
+                <div class="text-[11px] text-slate-400 flex justify-between px-2 pb-1 font-semibold">
+                    <span>Hạng & Chiến Binh (Top 50 có #Hạng & Khung)</span>
+                    <span>Tổng Thắng</span>
+                </div>
+
+                <!-- Danh sách người chơi xếp hạng -->
+                <div id="leaderboard-list" class="flex-1 overflow-y-auto space-y-1.5 pr-1">
+                    <!-- Render bằng JS -->
+                </div>
+            </div>
+
+            <!-- CHÍNH GIỮA: NÚT BẮT ĐẦU GHÉP (HÌNH BẦU DỤC LỚN NHƯ HÌNH 3) + TUỲ CHỌN 4 / 6 NGƯỜI -->
+            <div class="lg:col-span-7 flex flex-col items-center justify-center space-y-4">
+                <!-- Bộ chọn chế độ 4 xe tăng (Map 1) hoặc 6 xe tăng (Map 2) -->
+                <div class="glass-panel px-4 py-2 rounded-full flex items-center space-x-3 border border-slate-600">
+                    <span class="text-xs font-bold text-slate-300 uppercase">Chế độ bản đồ:</span>
+                    <button id="mode-btn-4" onclick="window.setMatchMode(4)" class="px-3.5 py-1 rounded-full text-xs font-extrabold bg-cyan-500 text-slate-950 shadow transition">
+                        4 Xe Tăng (Map 1 • 4 Đạn)
+                    </button>
+                    <button id="mode-btn-6" onclick="window.setMatchMode(6)" class="px-3.5 py-1 rounded-full text-xs font-bold text-slate-300 hover:text-white transition">
+                        6 Xe Tăng (Map 2 • 6 Đạn)
+                    </button>
+                </div>
+
+                <!-- Nút Bắt Đầu Ghép Bầu Dục -->
+                <button onclick="window.startQuickMatch()" class="match-btn-oval w-64 h-32 sm:w-80 sm:h-40 flex flex-col items-center justify-center text-center px-6 group">
+                    <span class="text-2xl sm:text-3xl font-black text-white uppercase tracking-wider drop-shadow-[0_2px_4px_rgba(0,0,0,0.8)]">
+                        BẮT ĐẦU GHÉP
+                    </span>
+                    <span id="match-mode-subtext" class="text-xs sm:text-sm font-bold text-amber-100 mt-1 bg-black/25 px-3 py-0.5 rounded-full">
+                        Ghép ngẫu nhiên 4 Người Chơi
+                    </span>
+                </button>
+
+                <!-- Tóm tắt luật tính Thắng & Lên Hạng -->
+                <div class="glass-panel px-4 py-2 rounded-xl max-w-lg text-center text-xs text-slate-300 border border-slate-700/80">
+                    💡 <b class="text-amber-300">Điều kiện tính Thắng:</b> Đạt <b>Hạng 1 (Về Nhất)</b> hoặc đạt <b>Hạng 2 (Về Nhì) kèm phá hủy ít nhất 2 xe tăng</b>! Đạn tự nạp lại 1 viên sau mỗi <b>5 giây</b>.
+                </div>
+            </div>
+        </div>
+
+        <!-- HÀNG DƯỚI CÙNG: PHÒNG THÁCH ĐẤU (GIỮA) & CÀI ĐẶT (PHẢI) -->
+        <div class="grid grid-cols-1 sm:grid-cols-12 gap-3 items-center pt-1">
+            <div class="hidden sm:block sm:col-span-4 text-xs text-slate-400">
+                🎮 Điều khiển: <kbd class="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-600 text-amber-300">WASD</kbd> di chuyển • <kbd class="bg-slate-800 px-1.5 py-0.5 rounded border border-slate-600 text-amber-300">SPACE</kbd> bắn đạn
+            </div>
+
+            <div class="sm:col-span-4 flex justify-center">
+                <button onclick="window.openRoomModal()" class="game-btn w-full sm:w-64 py-3 px-6 rounded-xl flex items-center justify-center space-x-2 border-2 border-cyan-500/80">
+                    <span class="text-xl">⚔️</span>
+                    <span class="font-extrabold text-sm sm:text-base uppercase tracking-wider text-cyan-300">Phòng Thách Đấu</span>
+                </button>
+            </div>
+
+            <div class="sm:col-span-4 flex justify-end">
+                <button onclick="window.openSettingsModal()" class="game-btn w-full sm:w-56 py-3 px-6 rounded-xl flex items-center justify-center space-x-2">
+                    <span class="text-xl">⚙️</span>
+                    <span class="font-extrabold text-sm sm:text-base uppercase tracking-wider text-slate-200">Cài Đặt & Luật Hạng</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+         MÀN HÌNH CHIẾN ĐẤU (BATTLE ARENA 2D)
+         ========================================================================= -->
+    <div id="battle-screen" class="hidden relative z-20 w-full h-full flex flex-col justify-between p-2 sm:p-4 bg-slate-950/90">
+        <!-- Thanh HUD Trận Đấu -->
+        <div class="w-full max-w-6xl mx-auto glass-panel px-3 py-2 rounded-xl flex flex-wrap items-center justify-between gap-2">
+            <!-- Thông tin người chơi & Đạn -->
+            <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2">
+                    <span id="hud-tank-color-dot" class="w-4 h-4 rounded-full bg-blue-500 border-2 border-white inline-block"></span>
+                    <span id="hud-player-name" class="font-extrabold text-sm sm:text-base text-white">TANKER</span>
+                </div>
+
+                <!-- Hộp Đạn & Thanh nạp 5s -->
+                <div class="bg-slate-900/90 px-3 py-1 rounded-lg border border-slate-700 flex items-center space-x-3">
+                    <div>
+                        <div class="text-[10px] text-slate-400 uppercase font-bold">Đạn hiện có</div>
+                        <div id="hud-ammo-icons" class="flex items-center space-x-1 mt-0.5"></div>
+                    </div>
+                    <div class="w-20">
+                        <div class="flex justify-between text-[10px] text-amber-300 font-bold">
+                            <span>Nạp (5s)</span>
+                            <span id="hud-reload-timer">5.0s</span>
+                        </div>
+                        <div class="w-full h-1.5 bg-slate-800 rounded-full overflow-hidden mt-0.5">
+                            <div id="hud-reload-bar" class="h-full bg-amber-400 w-0"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Số xe đã phá hủy -->
+                <div class="bg-slate-900/90 px-3 py-1 rounded-lg border border-slate-700 text-center">
+                    <div class="text-[10px] text-slate-400 uppercase font-bold">Phá Hủy</div>
+                    <div id="hud-kills" class="text-sm sm:text-base font-black text-rose-400">💥 0</div>
+                </div>
+            </div>
+
+            <!-- Danh sách trạng thái 4 hoặc 6 xe tăng trong trận -->
+            <div id="hud-tanks-status" class="flex items-center space-x-2 overflow-x-auto py-0.5"></div>
+
+            <!-- Nút Rời Trận -->
+            <button onclick="window.leaveMatch()" class="px-3 py-1.5 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-xs font-bold text-white border border-rose-400">
+                Thoát Trận
+            </button>
+        </div>
+
+        <!-- Khu vực Canvas Mê Cung (Map 1 hoặc Map 2) -->
+        <div id="arena-wrapper" class="flex-1 w-full flex items-center justify-center overflow-hidden my-1 relative">
+            <canvas id="gameCanvas" class="rounded-xl shadow-2xl border-4 border-slate-300 bg-white"></canvas>
+
+            <!-- Thông báo đếm ngược / Trạng thái giữa màn hình -->
+            <div id="battle-banner" class="hidden absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+                <div class="glass-panel px-8 py-4 rounded-2xl border-2 border-amber-400 text-center">
+                    <div id="battle-banner-title" class="text-3xl sm:text-5xl font-black text-amber-300 uppercase">CHUẨN BỊ!</div>
+                    <div id="battle-banner-sub" class="text-sm text-white mt-1">Sử dụng WASD để di chuyển, SPACE để bắn</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Điều khiển cảm ứng cho Điện Thoại / Máy tính bảng -->
+        <div class="w-full max-w-6xl mx-auto flex items-center justify-between px-2 py-1 sm:hidden">
+            <div class="grid grid-cols-3 gap-1 w-32 h-24">
+                <div></div>
+                <button data-touch-key="KeyW" class="game-btn rounded flex items-center justify-center text-white font-bold">▲</button>
+                <div></div>
+                <button data-touch-key="KeyA" class="game-btn rounded flex items-center justify-center text-white font-bold">◀</button>
+                <button data-touch-key="KeyS" class="game-btn rounded flex items-center justify-center text-white font-bold">▼</button>
+                <button data-touch-key="KeyD" class="game-btn rounded flex items-center justify-center text-white font-bold">▶</button>
+            </div>
+            <button id="btn-mobile-fire" class="w-20 h-20 rounded-full bg-gradient-to-b from-rose-500 to-red-700 border-4 border-amber-300 text-white font-black text-sm shadow-lg active:scale-95">
+                BẮN<br>(SPACE)
+            </button>
+        </div>
+    </div>
+
+    <!-- =========================================================================
+         CÁC HỘP THOẠI MODAL (TẠO TÊN & AVATAR, PHÒNG THÁCH ĐẤU, BẠN BÈ, LỊCH SỬ, KẾT QUẢ)
+         ========================================================================= -->
+    <div id="modal-backdrop" class="hidden fixed inset-0 bg-black/80 backdrop-blur-sm z-40 flex items-center justify-center p-4">
+
+        <!-- 1. MODAL HỒ SƠ: TẠO TÊN (KHÔNG DẤU, KIỂM TRA TRÙNG) + CHỌN AVATAR + MÀU KHUNG TOP 50 -->
+        <div id="modal-profile" class="hidden glass-panel max-w-md w-full rounded-2xl p-6 border-2 border-emerald-400 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-black uppercase text-emerald-300">Hồ Sơ Chiến Binh Xe Tăng</h3>
+                <button onclick="window.closeAllModals()" class="text-slate-400 hover:text-white text-xl font-bold">✕</button>
+            </div>
+
+            <!-- Nhập tên không dấu + Kiểm tra trùng -->
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-300 mb-1">
+                    Tên Ingame (Chỉ chữ cái A-Z và số 0-9, Không dùng dấu):
+                </label>
+                <div class="flex space-x-2">
+                    <input id="input-player-name" type="text" maxlength="14" placeholder="VD: SIEUTANK99"
+                        class="flex-1 bg-slate-900 border-2 border-slate-600 focus:border-emerald-400 rounded-xl px-3 py-2 text-white font-bold uppercase outline-none">
+                </div>
+                <p id="name-validation-msg" class="text-xs mt-1 text-slate-400">Hệ thống tự động kiểm tra tên trùng trên máy chủ.</p>
+            </div>
+
+            <!-- Chọn Ảnh Đại Diện -->
+            <div>
+                <label class="block text-xs font-bold uppercase text-slate-300 mb-1.5">Chọn Ảnh Đại Diện (Avatar):</label>
+                <div id="avatar-picker-grid" class="grid grid-cols-6 gap-2 bg-slate-900/80 p-2.5 rounded-xl border border-slate-700"></div>
+            </div>
+
+            <!-- Chọn Màu Khung Vinh Danh (Dành cho Top 50 Thế Giới) -->
+            <div>
+                <div class="flex items-center justify-between mb-1.5">
+                    <label class="text-xs font-bold uppercase text-amber-300">Màu Khung Avatar Top 50 Thế Giới:</label>
+                    <span id="profile-top50-status" class="text-[11px] px-2 py-0.5 rounded bg-emerald-900 text-emerald-300 font-bold">Đang mở khóa</span>
+                </div>
+                <div id="frame-color-grid" class="grid grid-cols-5 gap-2"></div>
+            </div>
+
+            <div class="pt-2 flex justify-end space-x-2">
+                <button onclick="window.saveProfile()" class="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-400 hover:to-teal-500 text-slate-950 font-black uppercase tracking-wider shadow-lg">
+                    Lưu Hồ Sơ Chiến Binh
+                </button>
+            </div>
+        </div>
+
+        <!-- 2. MODAL PHÒNG THÁCH ĐẤU (TẠO PHÒNG, NHẬP ID PHÒNG, MỜI BẠN BÈ) -->
+        <div id="modal-room" class="hidden glass-panel max-w-lg w-full rounded-2xl p-6 border-2 border-cyan-400 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-black uppercase text-cyan-300">⚔️ Phòng Thách Đấu Online</h3>
+                <button onclick="window.closeAllModals()" class="text-slate-400 hover:text-white text-xl font-bold">✕</button>
+            </div>
+
+            <!-- Tạo hoặc Nhập mã phòng -->
+            <div id="room-entry-section" class="space-y-4">
+                <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-700 space-y-3">
+                    <div class="text-xs font-bold text-slate-300 uppercase">Tham gia phòng của người khác bằng ID:</div>
+                    <div class="flex space-x-2">
+                        <input id="input-room-id" type="text" maxlength="6" placeholder="Nhập mã ID (VD: 8899)"
+                            class="flex-1 bg-slate-950 border-2 border-slate-600 focus:border-cyan-400 rounded-xl px-3 py-2 text-white font-bold uppercase outline-none">
+                        <button onclick="window.joinChallengeRoom()" class="px-5 py-2 rounded-xl bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-black uppercase">
+                            Vào Phòng
+                        </button>
+                    </div>
+                </div>
+
+                <div class="text-center text-xs text-slate-400 font-bold uppercase">— HOẶC —</div>
+
+                <div class="bg-slate-900/90 p-4 rounded-xl border border-slate-700 flex items-center justify-between">
+                    <div>
+                        <div class="font-bold text-white text-sm">Tạo Phòng Thách Đấu Mới</div>
+                        <div class="text-xs text-slate-400">Lấy mã ID phòng và mời bạn bè vào so tài</div>
+                    </div>
+                    <button onclick="window.createChallengeRoom()" class="px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-black uppercase">
+                        + Tạo Phòng
+                    </button>
+                </div>
+            </div>
+
+            <!-- Giao diện khi đang ở trong Phòng Chờ -->
+            <div id="room-waiting-section" class="hidden space-y-4">
+                <div class="bg-slate-900 p-3.5 rounded-xl border border-cyan-500/50 flex items-center justify-between">
+                    <div>
+                        <span class="text-xs text-slate-400">Mã ID Phòng:</span>
+                        <span id="active-room-code" class="text-xl font-black text-amber-300 ml-2 tracking-widest">----</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <button onclick="window.toggleRoomSize()" id="btn-room-size" class="text-xs bg-slate-800 hover:bg-slate-700 px-3 py-1.5 rounded-lg border border-slate-600 text-cyan-300 font-bold">
+                            Map 4 Người
+                        </button>
+                        <button onclick="window.copyRoomCode()" class="text-xs bg-cyan-600/30 hover:bg-cyan-600/50 px-3 py-1.5 rounded-lg border border-cyan-400 text-cyan-200 font-bold">
+                            📋 Sao chép ID
+                        </button>
+                    </div>
+                </div>
+
+                <div>
+                    <div class="text-xs font-bold uppercase text-slate-300 mb-2">Danh sách vị trí xe tăng trong phòng:</div>
+                    <div id="room-slots-list" class="grid grid-cols-2 gap-2"></div>
+                </div>
+
+                <!-- Mời nhanh bạn bè -->
+                <div>
+                    <div class="text-xs font-bold uppercase text-slate-400 mb-1">Mời nhanh bạn bè vào phòng:</div>
+                    <div id="room-invite-friends-list" class="flex space-x-2 overflow-x-auto pb-1"></div>
+                </div>
+
+                <div class="flex space-x-3 pt-2">
+                    <button onclick="window.leaveChallengeRoom()" class="w-1/3 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold uppercase">
+                        Rời Phòng
+                    </button>
+                    <button onclick="window.startChallengeRoomMatch()" class="w-2/3 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 font-black uppercase shadow-lg">
+                        🚀 Bắt Đầu Trận Đấu
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- 3. MODAL BẠN BÈ -->
+        <div id="modal-friends" class="hidden glass-panel max-w-md w-full rounded-2xl p-6 border-2 border-emerald-400 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-black uppercase text-emerald-300">👥 Danh Sách Bạn Bè</h3>
+                <button onclick="window.closeAllModals()" class="text-slate-400 hover:text-white text-xl font-bold">✕</button>
+            </div>
+
+            <div class="flex space-x-2">
+                <input id="input-friend-name" type="text" placeholder="Nhập tên người chơi không dấu..."
+                    class="flex-1 bg-slate-900 border-2 border-slate-600 focus:border-emerald-400 rounded-xl px-3 py-2 text-white font-bold uppercase outline-none text-sm">
+                <button onclick="window.addFriendByName()" class="px-4 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black text-xs uppercase">
+                    + Kết Bạn
+                </button>
+            </div>
+
+            <div id="friends-modal-list" class="max-h-64 overflow-y-auto space-y-2 pr-1"></div>
+        </div>
+
+        <!-- 4. MODAL LỊCH SỬ ĐẤU -->
+        <div id="modal-history" class="hidden glass-panel max-w-lg w-full rounded-2xl p-6 border-2 border-amber-400 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-black uppercase text-amber-300">📜 Lịch Sử Chiến Đấu</h3>
+                <button onclick="window.closeAllModals()" class="text-slate-400 hover:text-white text-xl font-bold">✕</button>
+            </div>
+            <div id="history-modal-list" class="max-h-72 overflow-y-auto space-y-2 pr-1"></div>
+        </div>
+
+        <!-- 5. MODAL CÀI ĐẶT & BẢNG QUY TẮC 8 BẬC HẠNG -->
+        <div id="modal-settings" class="hidden glass-panel max-w-xl w-full rounded-2xl p-6 border-2 border-slate-400 space-y-4">
+            <div class="flex items-center justify-between border-b border-slate-700 pb-3">
+                <h3 class="text-lg font-black uppercase text-white">⚙️ Cài Đặt & Hệ Thống 8 Bậc Hạng</h3>
+                <button onclick="window.closeAllModals()" class="text-slate-400 hover:text-white text-xl font-bold">✕</button>
+            </div>
+
+            <div class="flex items-center justify-between bg-slate-900 p-3 rounded-xl border border-slate-700">
+                <span class="text-sm font-bold">Âm thanh hiệu ứng (Bắn đạn, Nổ, Lên hạng)</span>
+                <button id="btn-toggle-sound" onclick="window.toggleSound()" class="px-4 py-1.5 rounded-lg bg-emerald-500 text-slate-950 font-black text-xs">
+                    🔊 ĐANG BẬT
+                </button>
+            </div>
+
+            <div class="space-y-2 text-xs">
+                <div class="font-bold text-amber-300 uppercase">Bảng Yêu Cầu Thăng Hạng (Sau khi lên hạng, số ván thắng bậc hiện tại tính về 0):</div>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-slate-200 bg-slate-900/90 p-3 rounded-xl border border-slate-700">
+                    <div>🪵 <b>Gỗ ➔ Đá:</b> 8 ván thắng</div>
+                    <div>🪨 <b>Đá ➔ Sắt:</b> 12 ván thắng</div>
+                    <div>⛓️ <b>Sắt ➔ Đồng:</b> 20 thắng + Chuỗi 4 thắng liên tiếp</div>
+                    <div>🥉 <b>Đồng ➔ Bạc:</b> 30 thắng + Chuỗi 6 thắng liên tiếp</div>
+                    <div>🥈 <b>Bạc ➔ Vàng:</b> 40 thắng + Chuỗi 10 thắng liên tiếp</div>
+                    <div>🥇 <b>Vàng ➔ Bạch Kim:</b> 52 thắng + Chuỗi 10 thắng liên tiếp</div>
+                    <div class="sm:col-span-2">💎 <b>Bạch Kim ➔ Kim Cương:</b> 70 ván thắng + Chuỗi 15 ván thắng liên tiếp</div>
+                </div>
+                <p class="text-slate-400">
+                    * <b>Điều kiện tính 1 ván Thắng:</b> Về Nhất (Top 1) HOẶC Về Nhì (Top 2) nhưng phá hủy được ít nhất <b>2 xe tăng</b> trong ván đó.
+                </p>
+            </div>
+
+            <!-- Công cụ Test nhanh Hạng để bạn kiểm tra hiệu ứng thăng hạng -->
+            <div class="bg-slate-900/90 p-3 rounded-xl border border-amber-500/40 flex items-center justify-between">
+                <div>
+                    <div class="text-xs font-bold text-amber-300">Chế độ Thử Nghiệm Nhanh (Developer Test)</div>
+                    <div class="text-[11px] text-slate-400">Cộng thử +1 Ván Thắng & +1 Chuỗi Thắng để kiểm tra lên hạng</div>
+                </div>
+                <button onclick="window.simulateWinForTesting()" class="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-slate-950 font-black text-xs">
+                    +1 Thắng Ngay
+                </button>
+            </div>
+        </div>
+
+        <!-- 6. MODAL KẾT QUẢ TRẬN ĐẤU -->
+        <div id="modal-result" class="hidden glass-panel max-w-md w-full rounded-2xl p-6 border-2 border-amber-400 text-center space-y-4">
+            <div id="result-icon" class="text-6xl">🏆</div>
+            <h3 id="result-title" class="text-2xl font-black uppercase text-amber-300">CHIẾN THẮNG!</h3>
+            <p id="result-subtitle" class="text-sm text-slate-200"></p>
+
+            <div id="result-stats-box" class="bg-slate-900 p-4 rounded-xl border border-slate-700 space-y-1.5 text-xs text-left"></div>
+
+            <button onclick="window.closeResultAndReturn()" class="w-full py-3 rounded-xl bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 font-black uppercase tracking-wider shadow-lg">
+                Quay Về Sảnh Chính
+            </button>
+        </div>
+
+        <!-- 7. MODAL HÀNG ĐỢI GHÉP TRẬN NGẪU NHIÊN (MATCHMAKING RADAR) -->
+        <div id="modal-matchmaking" class="hidden glass-panel max-w-md w-full rounded-2xl p-6 border-2 border-amber-400 text-center space-y-4">
+            <div class="relative w-20 h-20 mx-auto flex items-center justify-center">
+                <div class="absolute inset-0 rounded-full border-4 border-amber-400/30 animate-ping"></div>
+                <div class="w-16 h-16 rounded-full bg-amber-500/20 border-2 border-amber-400 flex items-center justify-center text-3xl">
+                    📡
+                </div>
+            </div>
+            <h3 class="text-xl font-black uppercase text-amber-300">ĐANG GHÉP NGẪU NHIÊN...</h3>
+            <p id="mm-status-text" class="text-xs text-slate-300">Đang tìm kiếm các chiến binh cùng bậc hạng trên máy chủ...</p>
+
+            <!-- Danh sách các slot người chơi đã tìm thấy -->
+            <div id="mm-slots-grid" class="grid grid-cols-2 gap-2 text-left"></div>
+
+            <div class="text-xs font-bold text-emerald-400" id="mm-counter-text">Đã tìm thấy: 1/4 Người chơi</div>
+
+            <button onclick="window.cancelQuickMatch()" class="w-full py-2.5 rounded-xl bg-rose-600/80 hover:bg-rose-600 text-white font-black uppercase text-xs border border-rose-400">
+                ✕ Hủy Ghép Trận
+            </button>
+        </div>
+
+    </div>
+
+    <!-- =========================================================================
+         SCRIPT CHÍNH: FIREBASE MULTIPLAYER + AUTH + MATCHMAKING + MAZE TANK PHYSICS
+         ========================================================================= -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc, collection, onSnapshot } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        /*************************************************************************
+         * 1. CẤU HÌNH HỆ THỐNG 8 BẬC HẠNG & KHUNG TOP 50 THẾ GIỚI
+         *************************************************************************/
+        const RANKS = [
+            { id: 0, name: "Gỗ", icon: "🪵", reqWins: 8, reqStreak: 0 },
+            { id: 1, name: "Đá", icon: "🪨", reqWins: 12, reqStreak: 0 },
+            { id: 2, name: "Sắt", icon: "⛓️", reqWins: 20, reqStreak: 4 },
+            { id: 3, name: "Đồng", icon: "🥉", reqWins: 30, reqStreak: 6 },
+            { id: 4, name: "Bạc", icon: "🥈", reqWins: 40, reqStreak: 10 },
+            { id: 5, name: "Vàng", icon: "🥇", reqWins: 52, reqStreak: 10 },
+            { id: 6, name: "Bạch Kim", icon: "💠", reqWins: 70, reqStreak: 15 },
+            { id: 7, name: "Kim Cương", icon: "💎", reqWins: 999999, reqStreak: 0 }
+        ];
+
+        const AVATARS = ["🐯", "🦁", "🐉", "🦅", "🐺", "🦊", "🤖", "👾", "🥷", "🏴‍☠️", "⚡", "🔥"];
+
+        const FRAME_THEMES = [
+            { id: "red-orange", name: "Đỏ Cam (Mặc định)", c1: "#fde047", c2: "#f97316", c3: "#dc2626", orb: "#ef4444" },
+            { id: "crimson-gold", name: "Huyết Long", c1: "#fef08a", c2: "#ef4444", c3: "#7f1d1d", orb: "#dc2626" },
+            { id: "cyber-amber", name: "Hoàng Kim", c1: "#ffffff", c2: "#facc15", c3: "#ca8a04", orb: "#f59e0b" },
+            { id: "neon-flame", name: "Lửa Tím", c1: "#f9a8d4", c2: "#ec4899", c3: "#9d174d", orb: "#db2777" },
+            { id: "emerald-fire", name: "Lục Bảo", c1: "#bef264", c2: "#10b981", c3: "#047857", orb: "#059669" }
+        ];
+
+        // 4 màu xe tăng chuẩn (Xanh - Đỏ - Tím - Vàng) + 2 màu mở rộng khi chọn 6 người
+        const TANK_COLORS = [
+            { name: "Xanh", hex: "#2563eb", light: "#60a5fa", dark: "#1e3a8a" },
+            { name: "Đỏ", hex: "#dc2626", light: "#f87171", dark: "#7f1d1d" },
+            { name: "Tím", hex: "#9333ea", light: "#c084fc", dark: "#581c87" },
+            { name: "Vàng", hex: "#eab308", light: "#fde047", dark: "#713f12" },
+            { name: "Lục", hex: "#16a34a", light: "#4ade80", dark: "#14532d" },
+            { name: "Cam", hex: "#ea580c", light: "#fb923c", dark: "#7c2d12" }
+        ];
+
+        /*************************************************************************
+         * 2. BẢN ĐỒ MÊ CUNG (MAP 1 CHO 4 NGƯỜI & MAP 2 CHO 6 NGƯỜI)
+         *************************************************************************/
+        const MAZE_MAP_4 = {
+            cols: 9,
+            rows: 9,
+            H: [
+                [1,1,1,1,1,1,1,1,1],
+                [0,1,0,1,0,0,1,0,1],
+                [0,0,1,0,1,1,1,1,0],
+                [1,0,0,1,1,0,0,1,0],
+                [0,1,1,1,0,1,1,0,1],
+                [0,1,0,0,1,0,1,1,0],
+                [1,1,0,1,0,1,1,0,1],
+                [0,1,0,1,0,0,1,1,0],
+                [0,1,1,0,1,1,0,0,0],
+                [1,1,1,1,0,1,1,1,1]
+            ],
+            V: [
+                [1,0,0,1,1,0,1,0,0,1],
+                [1,0,0,1,0,1,0,1,1,1],
+                [1,0,1,0,1,1,0,0,1,1],
+                [1,0,0,1,1,0,1,0,1,1],
+                [0,1,0,1,0,1,0,1,0,1],
+                [1,0,0,1,0,1,0,1,0,1],
+                [1,0,0,1,1,1,0,1,0,1],
+                [1,0,0,1,1,1,0,1,1,1],
+                [1,1,0,0,1,0,0,1,0,1]
+            ],
+            spawns: [
+                { c: 0, r: 0, angle: 0 },
+                { c: 8, r: 0, angle: Math.PI },
+                { c: 0, r: 8, angle: 0 },
+                { c: 8, r: 8, angle: Math.PI }
+            ]
+        };
+
+        const MAZE_MAP_6 = {
+            cols: 10,
+            rows: 10,
+            H: [
+                [1,1,1,1,1,1,1,1,1,1],
+                [1,1,0,0,0,0,0,1,1,1],
+                [0,1,1,1,0,1,1,1,0,0],
+                [1,0,0,1,1,1,0,1,1,0],
+                [0,1,1,0,1,1,0,1,0,0],
+                [1,1,0,0,1,1,1,0,1,1],
+                [0,0,0,1,1,1,0,1,0,0],
+                [1,0,0,0,1,1,1,0,1,1],
+                [0,1,1,0,1,0,1,1,1,0],
+                [1,0,1,1,1,0,1,0,1,0],
+                [1,1,1,1,1,0,1,1,1,1]
+            ],
+            V: [
+                [1,0,1,0,1,0,1,1,0,0,1],
+                [1,0,1,1,1,1,1,0,1,1,1],
+                [1,1,0,1,1,1,0,1,0,1,1],
+                [1,0,1,1,0,0,1,1,0,1,1],
+                [1,1,0,1,1,1,1,0,1,1,1],
+                [0,1,1,1,1,0,0,1,1,0,1],
+                [1,1,1,1,1,0,1,0,1,0,1],
+                [1,0,0,1,0,1,0,1,0,0,1],
+                [1,0,0,1,1,0,1,1,1,0,1],
+                [1,0,1,0,0,1,0,0,1,0,1]
+            ],
+            spawns: [
+                { c: 0, r: 0, angle: 0 },
+                { c: 9, r: 0, angle: Math.PI },
+                { c: 0, r: 9, angle: 0 },
+                { c: 9, r: 9, angle: Math.PI },
+                { c: 0, r: 4, angle: 0 },
+                { c: 9, r: 5, angle: Math.PI }
+            ]
+        };
+
+        /*************************************************************************
+         * 3. HỆ THỐNG ÂM THANH (TONE.JS)
+         *************************************************************************/
+        let soundEnabled = true;
+        let audioReady = false;
+        let synth = null;
+
+        async function initAudio() {
+            if (audioReady) return;
+            try {
+                await Tone.start();
+                synth = new Tone.PolySynth(Tone.Synth, {
+                    oscillator: { type: "triangle" },
+                    envelope: { attack: 0.005, decay: 0.1, sustain: 0.02, release: 0.1 }
+                }).toDestination();
+                synth.volume.value = -10;
+                audioReady = true;
+            } catch (e) {}
+        }
+
+        function playSfx(type) {
+            if (!soundEnabled || !audioReady || !synth) return;
+            const now = Tone.now();
+            try {
+                if (type === 'shoot') synth.triggerAttackRelease("G4", "32n", now);
+                else if (type === 'bounce') synth.triggerAttackRelease("C5", "64n", now, 0.3);
+                else if (type === 'explode') synth.triggerAttackRelease(["C2", "F#2", "A2"], "8n", now);
+                else if (type === 'win') {
+                    synth.triggerAttackRelease("C4", "16n", now);
+                    synth.triggerAttackRelease("E4", "16n", now + 0.08);
+                    synth.triggerAttackRelease("G4", "16n", now + 0.16);
+                    synth.triggerAttackRelease("C5", "8n", now + 0.25);
+                } else if (type === 'click') synth.triggerAttackRelease("E5", "64n", now, 0.25);
+            } catch (e) {}
+        }
+
+        /*************************************************************************
+         * 4. TRẠNG THÁI NGƯỜI CHƠI, TÀI KHOẢN, BẢNG XẾP HẠNG & ĐỒNG BỘ GITHUB / FIREBASE
+         *************************************************************************/
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'tank-maze-royale-app';
+        let db = null;
+        let auth = null;
+        let currentUser = null;
+        let isLoggedIn = false;
+        let selectedRegisterAvatar = "🐯";
+
+        // Bộ nhớ tài khoản cục bộ khi chạy độc lập trên GitHub Pages (Fallback song song với Cloud)
+        const memoryAccountsStore = new Map();
+        // Kênh đồng bộ thời gian thực giữa các Tab trình duyệt khi test trên GitHub Pages
+        const bcChannel = typeof BroadcastChannel !== 'undefined' ? new BroadcastChannel('tank_maze_github_sync') : null;
+
+        // Hồ sơ người chơi hiện tại (Khởi đầu ởHạng Gỗ = 0, Thắng = 0, chưa có tên cho tới khi Tạo TK / Đăng nhập)
+        const playerProfile = {
+            uid: "user-" + Math.random().toString(36).substring(2, 9),
+            name: "",
+            password: "",
+            avatar: "🐯",
+            frameTheme: "red-orange",
+            rankIndex: 0,      // 0: Gỗ -> 7: Kim Cương
+            tierWins: 0,       // Số ván thắng ở bậc hiện tại (Reset về 0 khi lên hạng)
+            maxStreakInTier: 0,// Chuỗi thắng liên tiếp cao nhất đạt được trong bậc hiện tại
+            currentStreak: 0,  // Chuỗi thắng liên tiếp hiện tại
+            totalWins: 0,      // Tổng số ván thắng tích lũy toàn thời gian
+            friends: ["DRAGON99", "VNPRO01", "SHADOWX"],
+            history: []
+        };
+
+        // Danh sách cao thủ Thế Giới mặc định để tạo Top 50 sôi động + đồng bộ người chơi thật từ Firestore
+        const defaultWorldPlayers = [
+            { uid: "bot-1", name: "GODTANKVN", avatar: "🐉", rankIndex: 7, totalWins: 145, frameTheme: "crimson-gold" },
+            { uid: "bot-2", name: "DRAGON99", avatar: "🦁", rankIndex: 6, totalWins: 98, frameTheme: "red-orange" },
+            { uid: "bot-3", name: "VNPRO01", avatar: "🦅", rankIndex: 5, totalWins: 76, frameTheme: "cyber-amber" },
+            { uid: "bot-4", name: "SHADOWX", avatar: "🥷", rankIndex: 4, totalWins: 54, frameTheme: "neon-flame" },
+            { uid: "bot-5", name: "KINGMAZE", avatar: "🤖", rankIndex: 3, totalWins: 41, frameTheme: "emerald-fire" },
+            { uid: "bot-6", name: "IRONWOLF", avatar: "🐺", rankIndex: 2, totalWins: 29, frameTheme: "red-orange" },
+            { uid: "bot-7", name: "CYBERFOX", avatar: "🦊", rankIndex: 2, totalWins: 22, frameTheme: "red-orange" },
+            { uid: "bot-8", name: "BLAZE88", avatar: "🔥", rankIndex: 1, totalWins: 15, frameTheme: "red-orange" },
+            { uid: "bot-9", name: "ROOKIE07", avatar: "🐯", rankIndex: 0, totalWins: 6, frameTheme: "red-orange" }
+        ];
+
+        let onlineProfilesMap = new Map();
+        let registeredAccountsMap = new Map(); // Lưu trữ toàn bộ tài khoản đã đăng ký (key = USERNAME)
+        let matchmakingPoolMap = new Map();    // Hàng đợi người chơi đang bấm "Bắt đầu ghép"
+        let currentLeaderboardTab = 'world';
+        let selectedMatchMode = 4; // 4 hoặc 6 người chơi
+        let activeRoomId = null;
+        let activeRoomData = null;
+        let roomUnsubscribe = null;
+        let matchmakingInterval = null;
+
+        if (bcChannel) {
+            bcChannel.onmessage = (ev) => {
+                const msg = ev.data;
+                if (!msg) return;
+                if (msg.type === 'ACCOUNT_SYNC' && msg.account) {
+                    registeredAccountsMap.set(msg.account.name, msg.account);
+                    onlineProfilesMap.set(msg.account.uid, msg.account);
+                    if (isLoggedIn) updateAllLobbyUI();
+                } else if (msg.type === 'MM_QUEUE_JOIN' && msg.entry) {
+                    matchmakingPoolMap.set(msg.entry.uid, msg.entry);
+                } else if (msg.type === 'MM_QUEUE_LEAVE' && msg.uid) {
+                    matchmakingPoolMap.delete(msg.uid);
+                }
+            };
+        }
+
+        function showToast(msg, type = 'info') {
+            const container = document.getElementById('toast-container');
+            const el = document.createElement('div');
+            const bg = type === 'error' ? 'bg-rose-600 border-rose-300' : (type === 'success' ? 'bg-emerald-600 border-emerald-300' : 'bg-slate-800 border-amber-400');
+            el.className = `${bg} border-2 text-white px-4 py-2 rounded-xl shadow-xl text-xs sm:text-sm font-bold transition-all duration-300`;
+            el.textContent = msg;
+            container.appendChild(el);
+            setTimeout(() => {
+                el.style.opacity = '0';
+                setTimeout(() => el.remove(), 300);
+            }, 2800);
+        }
+
+        // Khởi tạo Firebase đúng chuẩn Rule 1, 2, 3 (Và tự động chạy mượt nếu đưa lên GitHub chưa gắn config)
+        async function initFirebaseOnline() {
+            try {
+                // Nếu bạn đưa lên GitHub, bạn có thể điền trực tiếp firebaseConfig của bạn vào biến GITHUB_FIREBASE_CONFIG bên dưới
+                const GITHUB_FIREBASE_CONFIG = null; 
+                const rawConfig = (typeof __firebase_config !== 'undefined' && __firebase_config)
+                    ? JSON.parse(__firebase_config)
+                    : GITHUB_FIREBASE_CONFIG;
+
+                if (rawConfig) {
+                    const app = initializeApp(rawConfig);
+                    auth = getAuth(app);
+                    db = getFirestore(app);
+
+                    if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
+                        await signInWithCustomToken(auth, __initial_auth_token);
+                    } else {
+                        await signInAnonymously(auth);
+                    }
+                    currentUser = auth.currentUser;
+                    if (currentUser) {
+                        listenWorldProfiles();
+                        listenRegisteredAccounts();
+                        listenMatchmakingQueue();
+                    }
+                }
+            } catch (err) {
+                console.warn("Chế độ GitHub Standalone / Simulated Online:", err);
+            }
+            initAuthScreenUI();
+        }
+
+        function listenRegisteredAccounts() {
+            if (!db || !currentUser) return;
+            const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'accounts');
+            onSnapshot(colRef, (snapshot) => {
+                snapshot.forEach(docSnap => {
+                    const acc = docSnap.data();
+                    if (acc && acc.name) {
+                        registeredAccountsMap.set(acc.name.toUpperCase(), acc);
+                    }
+                });
+            }, () => {});
+        }
+
+        function listenMatchmakingQueue() {
+            if (!db || !currentUser) return;
+            const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'matchmaking_queue');
+            onSnapshot(colRef, (snapshot) => {
+                matchmakingPoolMap.clear();
+                snapshot.forEach(docSnap => {
+                    const q = docSnap.data();
+                    if (q && q.uid) matchmakingPoolMap.set(q.uid, q);
+                });
+            }, () => {});
+        }
+
+        async function syncProfileToCloud() {
+            if (!isLoggedIn || !playerProfile.name) return;
+
+            const accountPayload = {
+                uid: playerProfile.uid,
+                name: playerProfile.name.toUpperCase(),
+                password: playerProfile.password,
+                avatar: playerProfile.avatar,
+                frameTheme: playerProfile.frameTheme,
+                rankIndex: playerProfile.rankIndex,
+                tierWins: playerProfile.tierWins,
+                maxStreakInTier: playerProfile.maxStreakInTier,
+                currentStreak: playerProfile.currentStreak,
+                totalWins: playerProfile.totalWins,
+                friends: playerProfile.friends,
+                history: playerProfile.history.slice(0, 15),
+                updatedAt: Date.now()
+            };
+
+            registeredAccountsMap.set(accountPayload.name, accountPayload);
+            memoryAccountsStore.set(accountPayload.name, accountPayload);
+            onlineProfilesMap.set(accountPayload.uid, accountPayload);
+
+            if (bcChannel) {
+                bcChannel.postMessage({ type: 'ACCOUNT_SYNC', account: accountPayload });
+            }
+
+            if (!db || !currentUser) return;
+            try {
+                // Lưu vào bảng tài khoản chung để có thể Đăng Nhập lại từ bất kỳ đâu theo đúng Tên + Mật khẩu
+                const accDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'accounts', accountPayload.name);
+                await setDoc(accDocRef, accountPayload);
+
+                // Lưu vào bảng xếp hạng Thế Giới
+                const pubDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'leaderboard', playerProfile.uid);
+                await setDoc(pubDocRef, {
+                    uid: playerProfile.uid,
+                    name: playerProfile.name,
+                    avatar: playerProfile.avatar,
+                    frameTheme: playerProfile.frameTheme,
+                    rankIndex: playerProfile.rankIndex,
+                    totalWins: playerProfile.totalWins,
+                    updatedAt: Date.now()
+                });
+            } catch (e) {}
+        }
+
+        function listenWorldProfiles() {
+            if (!db || !currentUser) return;
+            const colRef = collection(db, 'artifacts', appId, 'public', 'data', 'leaderboard');
+            onSnapshot(colRef, (snapshot) => {
+                snapshot.forEach(docSnap => {
+                    const d = docSnap.data();
+                    if (d && d.uid) onlineProfilesMap.set(d.uid, d);
+                });
+                if (isLoggedIn) updateAllLobbyUI();
+            }, () => {});
+        }
+
+        /*************************************************************************
+         * 4B. HỆ THỐNG ĐĂNG KÝ TÀI KHOẢN LẦN ĐẦU & ĐĂNG NHẬP TÀI KHOẢN
+         *************************************************************************/
+        function initAuthScreenUI() {
+            const regInput = document.getElementById('reg-username');
+            const loginInput = document.getElementById('login-username');
+
+            const sanitizeInput = (inp) => {
+                const clean = inp.value
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .replace(/đ/g, "d").replace(/Đ/g, "D")
+                    .replace(/[^a-zA-Z0-9]/g, "")
+                    .toUpperCase();
+                if (inp.value !== clean) inp.value = clean;
+            };
+
+            regInput.oninput = () => {
+                sanitizeInput(regInput);
+                const check = validateCleanName(regInput.value, true);
+                const st = document.getElementById('reg-name-status');
+                st.textContent = check.msg;
+                st.className = `text-[11px] mt-1 font-bold ${check.valid ? 'text-emerald-400' : 'text-rose-400'}`;
+            };
+
+            loginInput.oninput = () => sanitizeInput(loginInput);
+
+            renderRegisterAvatarGrid();
+        }
+
+        function renderRegisterAvatarGrid() {
+            const grid = document.getElementById('reg-avatar-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            AVATARS.forEach(av => {
+                const btn = document.createElement('button');
+                btn.type = "button";
+                btn.className = `p-2 text-2xl rounded-xl border-2 transition ${selectedRegisterAvatar === av ? 'bg-emerald-600/40 border-emerald-400 scale-105' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`;
+                btn.textContent = av;
+                btn.onclick = () => {
+                    selectedRegisterAvatar = av;
+                    renderRegisterAvatarGrid();
+                };
+                grid.appendChild(btn);
+            });
+        }
+
+        window.switchAuthMode = function (mode) {
+            playSfx('click');
+            const btnReg = document.getElementById('tab-auth-register');
+            const btnLog = document.getElementById('tab-auth-login');
+            const formReg = document.getElementById('form-register');
+            const formLog = document.getElementById('form-login');
+
+            if (mode === 'register') {
+                btnReg.className = "py-2.5 rounded-lg bg-emerald-500 text-slate-950 shadow transition";
+                btnLog.className = "py-2.5 rounded-lg text-slate-300 hover:text-white transition";
+                formReg.classList.remove('hidden');
+                formLog.classList.add('hidden');
+            } else {
+                btnLog.className = "py-2.5 rounded-lg bg-amber-500 text-slate-950 shadow transition";
+                btnReg.className = "py-2.5 rounded-lg text-slate-300 hover:text-white transition";
+                formLog.classList.remove('hidden');
+                formReg.classList.add('hidden');
+            }
+        };
+
+        window.handleRegisterAccount = async function () {
+            await initAudio();
+            const rawName = document.getElementById('reg-username').value;
+            const pass = document.getElementById('reg-password').value.trim();
+
+            const check = validateCleanName(rawName, true);
+            if (!check.valid) {
+                showToast(check.msg, "error");
+                return;
+            }
+            if (pass.length < 4) {
+                showToast("Mật khẩu phải có ít nhất 4 ký tự!", "error");
+                return;
+            }
+
+            // Kiểm tra trên Firestore một lần nữa để chắc chắn tên chưa ai đăng ký
+            if (db && currentUser) {
+                try {
+                    const accDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'accounts', check.clean);
+                    const snap = await getDoc(accDocRef);
+                    if (snap.exists()) {
+                        showToast("⚠️ Tên tài khoản này đã có người đăng ký! Hãy chọn tên khác hoặc chuyển sang Đăng Nhập.", "error");
+                        return;
+                    }
+                } catch (e) {}
+            }
+
+            // Tạo tài khoản mới tinh từ Hạng Gỗ (0 thắng)
+            playerProfile.uid = "acc-" + check.clean;
+            playerProfile.name = check.clean;
+            playerProfile.password = pass;
+            playerProfile.avatar = selectedRegisterAvatar;
+            playerProfile.frameTheme = "red-orange";
+            playerProfile.rankIndex = 0;
+            playerProfile.tierWins = 0;
+            playerProfile.maxStreakInTier = 0;
+            playerProfile.currentStreak = 0;
+            playerProfile.totalWins = 0;
+            playerProfile.history = [];
+
+            isLoggedIn = true;
+            await syncProfileToCloud();
+
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('lobby-screen').classList.remove('hidden');
+            updateAllLobbyUI();
+            showToast(`Chào mừng chiến binh mới ${playerProfile.name}!`, "success");
+        };
+
+        window.handleLoginAccount = async function () {
+            await initAudio();
+            const rawName = document.getElementById('login-username').value.trim().toUpperCase();
+            const pass = document.getElementById('login-password').value.trim();
+
+            if (rawName.length < 3) {
+                showToast("Vui lòng nhập tên tài khoản hợp lệ!", "error");
+                return;
+            }
+
+            let foundAcc = registeredAccountsMap.get(rawName) || memoryAccountsStore.get(rawName);
+
+            // Tìm trên Firestore nếu chưa có trong bộ nhớ
+            if (!foundAcc && db && currentUser) {
+                try {
+                    const accDocRef = doc(db, 'artifacts', appId, 'public', 'data', 'accounts', rawName);
+                    const snap = await getDoc(accDocRef);
+                    if (snap.exists()) {
+                        foundAcc = snap.data();
+                    }
+                } catch (e) {}
+            }
+
+            if (!foundAcc) {
+                showToast("❌ Tài khoản chưa tồn tại! Vui lòng chuyển sang mục '1. Tạo Tài Khoản' trước.", "error");
+                return;
+            }
+
+            if (foundAcc.password !== pass) {
+                showToast("❌ Mật khẩu không chính xác!", "error");
+                return;
+            }
+
+            Object.assign(playerProfile, foundAcc);
+            isLoggedIn = true;
+
+            document.getElementById('auth-screen').classList.add('hidden');
+            document.getElementById('lobby-screen').classList.remove('hidden');
+            updateAllLobbyUI();
+            showToast(`Đăng nhập thành công! Chào mừng trở lại, ${playerProfile.name}!`, "success");
+        };
+
+        window.logoutAccount = function () {
+            playSfx('click');
+            isLoggedIn = false;
+            document.getElementById('lobby-screen').classList.add('hidden');
+            document.getElementById('auth-screen').classList.remove('hidden');
+            window.switchAuthMode('login');
+            document.getElementById('login-username').value = playerProfile.name;
+            document.getElementById('login-password').value = "";
+            showToast("Đã đăng xuất! Bạn có thể đăng nhập lại hoặc tạo tài khoản mới.", "info");
+        };
+
+        /*************************************************************************
+         * 5. LOGIC TÍNH HẠNG (8 BẬC) & BẢNG XẾP HẠNG TOP 50 THẾ GIỚI
+         *************************************************************************/
+        function getCombinedLeaderboard() {
+            const map = new Map();
+            defaultWorldPlayers.forEach(p => map.set(p.uid, { ...p }));
+            onlineProfilesMap.forEach((p, uid) => map.set(uid, { ...p }));
+            map.set(playerProfile.uid, {
+                uid: playerProfile.uid,
+                name: playerProfile.name,
+                avatar: playerProfile.avatar,
+                rankIndex: playerProfile.rankIndex,
+                totalWins: playerProfile.totalWins,
+                frameTheme: playerProfile.frameTheme
+            });
+
+            const all = Array.from(map.values());
+            // Sắp xếp theo Tổng số ván thắng giảm dần
+            all.sort((a, b) => b.totalWins - a.totalWins);
+            return all.map((item, idx) => ({ ...item, worldPos: idx + 1 }));
+        }
+
+        function applyTop50FrameStyle(themeId, isTop50) {
+            const svg = document.getElementById('top50-frame-svg');
+            if (!isTop50) {
+                svg.classList.add('hidden');
+                return;
+            }
+            svg.classList.remove('hidden');
+            const theme = FRAME_THEMES.find(t => t.id === themeId) || FRAME_THEMES[0];
+            document.getElementById('frame-stop-1').setAttribute('stop-color', theme.c1);
+            document.getElementById('frame-stop-2').setAttribute('stop-color', theme.c2);
+            document.getElementById('frame-stop-3').setAttribute('stop-color', theme.c3);
+            document.getElementById('orb-stop-main').setAttribute('stop-color', theme.orb);
+        }
+
+        function updateAllLobbyUI() {
+            const worldList = getCombinedLeaderboard();
+            const myEntry = worldList.find(p => p.uid === playerProfile.uid);
+            const myWorldPos = myEntry ? myEntry.worldPos : 99;
+            const isTop50 = myWorldPos <= 50;
+
+            // Cập nhật Avatar & Tên + Hạng đánh dấu sau tên nếu trong Top 50 Thế Giới
+            document.getElementById('ui-avatar-icon').textContent = playerProfile.avatar;
+            document.getElementById('ui-player-name').textContent = playerProfile.name;
+
+            const topBadge = document.getElementById('ui-top-badge');
+            if (isTop50) {
+                topBadge.textContent = `#${myWorldPos} TG`;
+                topBadge.classList.remove('hidden');
+            } else {
+                topBadge.classList.add('hidden');
+            }
+
+            applyTop50FrameStyle(playerProfile.frameTheme, isTop50);
+
+            // Cập nhật thông tin Hạng hiện tại (Gỗ -> Kim Cương)
+            const curRank = RANKS[playerProfile.rankIndex];
+            document.getElementById('ui-rank-icon').textContent = curRank.icon;
+            document.getElementById('ui-rank-name').textContent = `Hạng ${curRank.name}`;
+
+            if (playerProfile.rankIndex < 7) {
+                const nextRank = RANKS[playerProfile.rankIndex + 1];
+                const reqW = curRank.reqWins;
+                const reqS = curRank.reqStreak;
+                let progText = `Thắng: ${playerProfile.tierWins}/${reqW}`;
+                if (reqS > 0) {
+                    progText += ` • Chuỗi đạt: ${playerProfile.maxStreakInTier}/${reqS}`;
+                }
+                document.getElementById('ui-rank-progress-text').textContent = progText;
+
+                const pct = Math.min(100, Math.round((playerProfile.tierWins / reqW) * 100));
+                document.getElementById('ui-rank-bar').style.width = `${pct}%`;
+            } else {
+                document.getElementById('ui-rank-progress-text').textContent = "Đỉnh Cao Kim Cương!";
+                document.getElementById('ui-rank-bar').style.width = `100%`;
+            }
+
+            document.getElementById('ui-streak-text').textContent = `Chuỗi: ${playerProfile.currentStreak}🔥`;
+            document.getElementById('ui-total-wins-sub').textContent = `Tổng thắng: ${playerProfile.totalWins} ván`;
+            document.getElementById('ui-friends-count-sub').textContent = `${playerProfile.friends.length} người bạn`;
+
+            renderLeaderboard(worldList);
+        }
+
+        function renderLeaderboard(worldList) {
+            const container = document.getElementById('leaderboard-list');
+            container.innerHTML = '';
+
+            let displayList = worldList;
+            if (currentLeaderboardTab === 'friends') {
+                displayList = worldList.filter(p =>
+                    p.uid === playerProfile.uid ||
+                    playerProfile.friends.includes(p.name.toUpperCase())
+                );
+            }
+
+            displayList.slice(0, 50).forEach((p) => {
+                const isMe = p.uid === playerProfile.uid;
+                const rObj = RANKS[p.rankIndex] || RANKS[0];
+                const inTop50 = p.worldPos <= 50;
+                const theme = FRAME_THEMES.find(t => t.id === p.frameTheme) || FRAME_THEMES[0];
+
+                const row = document.createElement('div');
+                row.className = `flex items-center justify-between px-2.5 py-1.5 rounded-xl border ${isMe ? 'bg-emerald-950/70 border-emerald-400' : 'bg-slate-900/75 border-slate-800'} text-xs`;
+
+                row.innerHTML = `
+                    <div class="flex items-center space-x-2.5 min-w-0">
+                        <span class="w-6 text-center font-black ${p.worldPos <= 3 ? 'text-amber-300 text-sm' : 'text-slate-400'}">
+                            #${p.worldPos}
+                        </span>
+                        <div class="relative w-8 h-8 rounded-full flex items-center justify-center bg-slate-800 text-base flex-shrink-0"
+                             style="border: 2px solid ${inTop50 ? theme.c2 : '#475569'}; box-shadow: ${inTop50 ? '0 0 8px ' + theme.c2 : 'none'}">
+                            ${p.avatar}
+                        </div>
+                        <div class="truncate">
+                            <div class="flex items-center space-x-1">
+                                <span class="font-bold text-white truncate">${p.name}</span>
+                                ${inTop50 ? `<span class="text-[10px] px-1 rounded bg-amber-500/20 border border-amber-400 text-amber-300 font-extrabold">[#${p.worldPos}]</span>` : ''}
+                            </div>
+                            <div class="text-[10px] text-slate-400">${rObj.icon} Hạng ${rObj.name}</div>
+                        </div>
+                    </div>
+                    <div class="text-right flex-shrink-0">
+                        <span class="font-black text-amber-300 text-sm">${p.totalWins}</span>
+                        <span class="text-[10px] text-slate-400 block">ván thắng</span>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        // Xử lý kết quả ván đấu và kiểm tra điều kiện Lên Hạng
+        function processMatchOutcome(place, kills, modeCount) {
+            // Người chơi được tính là THẮNG khi: Về Nhất (place === 1) HOẶC Về Nhì (place === 2) với tổng số xe phá hủy >= 2
+            const isWin = (place === 1) || (place === 2 && kills >= 2);
+            let rankUpMsg = "";
+
+            if (isWin) {
+                playerProfile.totalWins += 1;
+                playerProfile.tierWins += 1;
+                playerProfile.currentStreak += 1;
+                if (playerProfile.currentStreak > playerProfile.maxStreakInTier) {
+                    playerProfile.maxStreakInTier = playerProfile.currentStreak;
+                }
+
+                // Kiểm tra thăng hạng
+                if (playerProfile.rankIndex < 7) {
+                    const curRank = RANKS[playerProfile.rankIndex];
+                    const enoughWins = playerProfile.tierWins >= curRank.reqWins;
+                    const enoughStreak = playerProfile.maxStreakInTier >= curRank.reqStreak;
+
+                    if (enoughWins && enoughStreak) {
+                        playerProfile.rankIndex += 1;
+                        // Sau khi lên hạng thì số ván thắng bậc đó tính về 0, còn tổng số ván thắng vẫn giữ nguyên
+                        playerProfile.tierWins = 0;
+                        playerProfile.maxStreakInTier = 0;
+                        const newRank = RANKS[playerProfile.rankIndex];
+                        rankUpMsg = `🎉 CHÚC MỪNG THĂNG HẠNG: ${newRank.icon} HẠNG ${newRank.name.toUpperCase()}! (Số ván thắng bậc mới đã đặt về 0)`;
+                    }
+                }
+            } else {
+                playerProfile.currentStreak = 0;
+            }
+
+            playerProfile.history.unshift({
+                time: new Date().toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }),
+                mode: `${modeCount} Xe Tăng`,
+                place,
+                kills,
+                result: isWin ? "THẮNG" : "BẠI"
+            });
+
+            syncProfileToCloud();
+            updateAllLobbyUI();
+            return { isWin, rankUpMsg };
+        }
+
+        /*************************************************************************
+         * 6. QUẢN LÝ HỒ SƠ, KIỂM TRA TÊN KHÔNG DẤU & TRÙNG TÊN
+         *************************************************************************/
+        function validateCleanName(rawName, isNewRegistration = false) {
+            const clean = rawName.trim().toUpperCase();
+            // Chỉ cho phép chữ cái không dấu A-Z và số 0-9, từ 3-14 ký tự
+            const regex = /^[A-Z0-9]{3,14}$/;
+            if (!regex.test(clean)) {
+                return { valid: false, msg: "❌ Tên phải từ 3-14 ký tự, viết liền KHÔNG DẤU và không ký tự đặc biệt!" };
+            }
+            // Kiểm tra trùng tên với người chơi khác trên bảng xếp hạng hoặc danh sách tài khoản đã đăng ký
+            const worldList = getCombinedLeaderboard();
+            const duplicateInWorld = worldList.some(p => (isNewRegistration || p.uid !== playerProfile.uid) && p.name.toUpperCase() === clean);
+            const duplicateInAcc = registeredAccountsMap.has(clean) && (isNewRegistration || clean !== playerProfile.name);
+
+            if (duplicateInWorld || duplicateInAcc) {
+                return { valid: false, msg: "⚠️ Tên này đã có người sử dụng! Vui lòng chọn tên khác." };
+            }
+            return { valid: true, clean, msg: "✅ Tên hợp lệ và có thể sử dụng!" };
+        }
+
+        window.openProfileModal = function () {
+            playSfx('click');
+            document.getElementById('modal-backdrop').classList.remove('hidden');
+            document.querySelectorAll('#modal-backdrop > div').forEach(el => el.classList.add('hidden'));
+            document.getElementById('modal-profile').classList.remove('hidden');
+
+            const nameInput = document.getElementById('input-player-name');
+            nameInput.value = playerProfile.name;
+
+            nameInput.oninput = () => {
+                // Tự động loại bỏ dấu tiếng Việt khi gõ
+                const normalized = nameInput.value
+                    .normalize("NFD")
+                    .replace(/[\u0300-\u036f]/g, "")
+                    .replace(/đ/g, "d").replace(/Đ/g, "D")
+                    .replace(/[^a-zA-Z0-9]/g, "")
+                    .toUpperCase();
+                if (nameInput.value !== normalized) nameInput.value = normalized;
+
+                const check = validateCleanName(nameInput.value);
+                const msgEl = document.getElementById('name-validation-msg');
+                msgEl.textContent = check.msg;
+                msgEl.className = `text-xs mt-1 font-semibold ${check.valid ? 'text-emerald-400' : 'text-rose-400'}`;
+            };
+
+            // Render danh sách chọn Avatar
+            const avatarGrid = document.getElementById('avatar-picker-grid');
+            avatarGrid.innerHTML = '';
+            AVATARS.forEach(av => {
+                const btn = document.createElement('button');
+                btn.className = `p-2 text-2xl rounded-xl border-2 transition ${playerProfile.avatar === av ? 'bg-emerald-600/40 border-emerald-400 scale-105' : 'bg-slate-800 border-slate-700 hover:border-slate-500'}`;
+                btn.textContent = av;
+                btn.onclick = () => {
+                    playerProfile.avatar = av;
+                    window.openProfileModal();
+                };
+                avatarGrid.appendChild(btn);
+            });
+
+            // Render danh sách màu khung Top 50
+            const frameGrid = document.getElementById('frame-color-grid');
+            frameGrid.innerHTML = '';
+            FRAME_THEMES.forEach(ft => {
+                const btn = document.createElement('button');
+                const active = playerProfile.frameTheme === ft.id;
+                btn.className = `p-2 rounded-xl border-2 flex flex-col items-center space-y-1 text-[10px] font-bold ${active ? 'border-white bg-slate-800' : 'border-slate-700 bg-slate-900 opacity-75'}`;
+                btn.innerHTML = `
+                    <span class="w-6 h-6 rounded-full border border-white" style="background: linear-gradient(135deg, ${ft.c1}, ${ft.c2}, ${ft.c3})"></span>
+                    <span class="truncate w-full text-center text-slate-200">${ft.name.split(' ')[0]}</span>
+                `;
+                btn.onclick = () => {
+                    playerProfile.frameTheme = ft.id;
+                    window.openProfileModal();
+                };
+                frameGrid.appendChild(btn);
+            });
+        };
+
+        window.saveProfile = function () {
+            const raw = document.getElementById('input-player-name').value;
+            const check = validateCleanName(raw);
+            if (!check.valid) {
+                showToast(check.msg, 'error');
+                return;
+            }
+            playerProfile.name = check.clean;
+            syncProfileToCloud();
+            updateAllLobbyUI();
+            window.closeAllModals();
+            showToast("Đã cập nhật Hồ Sơ Chiến Binh!", "success");
+        };
+
+        /*************************************************************************
+         * 7. CÁC MODAL BẠN BÈ, LỊCH SỬ ĐẤU, CÀI ĐẶT & PHÒNG THÁCH ĐẤU
+         *************************************************************************/
+        window.closeAllModals = function () {
+            document.getElementById('modal-backdrop').classList.add('hidden');
+            document.querySelectorAll('#modal-backdrop > div').forEach(el => el.classList.add('hidden'));
+        };
+
+        window.switchLeaderboardTab = function (tab) {
+            playSfx('click');
+            currentLeaderboardTab = tab;
+            const btnW = document.getElementById('tab-lb-world');
+            const btnF = document.getElementById('tab-lb-friends');
+            if (tab === 'world') {
+                btnW.className = "px-2.5 py-1 rounded-md bg-amber-500 text-slate-950 font-bold transition";
+                btnF.className = "px-2.5 py-1 rounded-md text-slate-300 hover:text-white font-semibold transition";
+            } else {
+                btnF.className = "px-2.5 py-1 rounded-md bg-amber-500 text-slate-950 font-bold transition";
+                btnW.className = "px-2.5 py-1 rounded-md text-slate-300 hover:text-white font-semibold transition";
+            }
+            updateAllLobbyUI();
+        };
+
+        window.setMatchMode = function (count) {
+            playSfx('click');
+            selectedMatchMode = count;
+            const b4 = document.getElementById('mode-btn-4');
+            const b6 = document.getElementById('mode-btn-6');
+            if (count === 4) {
+                b4.className = "px-3.5 py-1 rounded-full text-xs font-extrabold bg-cyan-500 text-slate-950 shadow transition";
+                b6.className = "px-3.5 py-1 rounded-full text-xs font-bold text-slate-300 hover:text-white transition";
+                document.getElementById('match-mode-subtext').textContent = "Ghép ngẫu nhiên 4 Người Chơi (Map 1)";
+            } else {
+                b6.className = "px-3.5 py-1 rounded-full text-xs font-extrabold bg-cyan-500 text-slate-950 shadow transition";
+                b4.className = "px-3.5 py-1 rounded-full text-xs font-bold text-slate-300 hover:text-white transition";
+                document.getElementById('match-mode-subtext').textContent = "Ghép ngẫu nhiên 6 Người Chơi (Map 2)";
+            }
+        };
+
+        window.openFriendsModal = function () {
+            playSfx('click');
+            document.getElementById('modal-backdrop').classList.remove('hidden');
+            document.querySelectorAll('#modal-backdrop > div').forEach(el => el.classList.add('hidden'));
+            document.getElementById('modal-friends').classList.remove('hidden');
+            renderFriendsModalList();
+        };
+
+        function renderFriendsModalList() {
+            const listEl = document.getElementById('friends-modal-list');
+            listEl.innerHTML = '';
+            const world = getCombinedLeaderboard();
+
+            playerProfile.friends.forEach(fname => {
+                const found = world.find(p => p.name.toUpperCase() === fname.toUpperCase());
+                const wins = found ? found.totalWins : Math.floor(Math.random() * 30 + 5);
+                const av = found ? found.avatar : "🤖";
+                const rObj = found ? RANKS[found.rankIndex] : RANKS[2];
+
+                const item = document.createElement('div');
+                item.className = "flex items-center justify-between bg-slate-900 p-2.5 rounded-xl border border-slate-700";
+                item.innerHTML = `
+                    <div class="flex items-center space-x-2.5">
+                        <span class="text-2xl">${av}</span>
+                        <div>
+                            <div class="font-bold text-sm text-white">${fname}</div>
+                            <div class="text-[11px] text-emerald-400">${rObj.icon} Hạng ${rObj.name} • ${wins} Thắng</div>
+                        </div>
+                    </div>
+                    <div class="flex space-x-1.5">
+                        <button onclick="window.inviteFriendToRoom('${fname}')" class="px-2.5 py-1 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-white text-xs font-bold">
+                            Mời Đấu
+                        </button>
+                        <button onclick="window.removeFriend('${fname}')" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-rose-600 text-slate-300 text-xs">
+                            ✕
+                        </button>
+                    </div>
+                `;
+                listEl.appendChild(item);
+            });
+        }
+
+        window.addFriendByName = function () {
+            const inp = document.getElementById('input-friend-name');
+            const clean = inp.value.trim().toUpperCase().replace(/[^A-Z0-9]/g, "");
+            if (clean.length < 3) {
+                showToast("Tên bạn bè không hợp lệ!", "error");
+                return;
+            }
+            if (!playerProfile.friends.includes(clean)) {
+                playerProfile.friends.push(clean);
+                syncProfileToCloud();
+                updateAllLobbyUI();
+                renderFriendsModalList();
+                showToast(`Đã thêm ${clean} vào danh sách Bạn Bè!`, "success");
+            }
+            inp.value = "";
+        };
+
+        window.removeFriend = function (fname) {
+            playerProfile.friends = playerProfile.friends.filter(f => f !== fname);
+            syncProfileToCloud();
+            updateAllLobbyUI();
+            renderFriendsModalList();
+        };
+
+        window.inviteFriendToRoom = function (fname) {
+            window.openRoomModal();
+            if (!activeRoomId) window.createChallengeRoom();
+            setTimeout(() => {
+                if (activeRoomData && activeRoomData.players.length < activeRoomData.maxPlayers) {
+                    activeRoomData.players.push({
+                        uid: "friend-" + fname,
+                        name: fname,
+                        avatar: "🦁",
+                        isBot: true
+                    });
+                    renderChallengeRoomSlots();
+                    showToast(`Đã mời ${fname} vào Phòng Thách Đấu!`, "success");
+                }
+            }, 300);
+        };
+
+        window.openHistoryModal = function () {
+            playSfx('click');
+            document.getElementById('modal-backdrop').classList.remove('hidden');
+            document.querySelectorAll('#modal-backdrop > div').forEach(el => el.classList.add('hidden'));
+            document.getElementById('modal-history').classList.remove('hidden');
+
+            const container = document.getElementById('history-modal-list');
+            container.innerHTML = '';
+            playerProfile.history.forEach(h => {
+                const isWin = h.result === "THẮNG";
+                const row = document.createElement('div');
+                row.className = `flex items-center justify-between p-3 rounded-xl border ${isWin ? 'bg-emerald-950/40 border-emerald-500/50' : 'bg-rose-950/30 border-rose-500/40'}`;
+                row.innerHTML = `
+                    <div>
+                        <div class="font-extrabold text-sm ${isWin ? 'text-emerald-400' : 'text-rose-400'}">
+                            ${isWin ? '🏆 CHIẾN THẮNG' : '💥 THẤT BẠI'} — Hạng #${h.place}
+                        </div>
+                        <div class="text-xs text-slate-400">${h.mode} • Thời gian: ${h.time}</div>
+                    </div>
+                    <div class="text-right">
+                        <div class="text-sm font-black text-amber-300">Phá hủy: ${h.kills} xe</div>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        };
+
+        window.openSettingsModal = function () {
+            playSfx('click');
+            document.getElementById('modal-backdrop').classList.remove('hidden');
+            document.querySelectorAll('#modal-backdrop > div').forEach(el => el.classList.add('hidden'));
+            document.getElementById('modal-settings').classList.remove('hidden');
+        };
+
+        window.toggleSound = function () {
+            soundEnabled = !soundEnabled;
+            const btn = document.getElementById('btn-toggle-sound');
+            btn.textContent = soundEnabled ? "🔊 ĐANG BẬT" : "🔇 ĐANG TẮT";
+            btn.className = soundEnabled
+                ? "px-4 py-1.5 rounded-lg bg-emerald-500 text-slate-950 font-black text-xs"
+                : "px-4 py-1.5 rounded-lg bg-slate-700 text-slate-300 font-black text-xs";
+        };
+
+        window.simulateWinForTesting = function () {
+            const res = processMatchOutcome(1, 3, selectedMatchMode);
+            if (res.rankUpMsg) {
+                showToast(res.rankUpMsg, "success");
+            } else {
+                showToast(`Đã cộng +1 Thắng! (Thắng bậc này: ${playerProfile.tierWins}, Chuỗi: ${playerProfile.currentStreak}🔥)`, "info");
+            }
+        };
+
+        // PHÒNG THÁCH ĐẤU ONLINE (TẠO PHÒNG & NHẬP ID PHÒNG)
+        window.openRoomModal = function () {
+            playSfx('click');
+            document.getElementById('modal-backdrop').classList.remove('hidden');
+            document.querySelectorAll('#modal-backdrop > div').forEach(el => el.classList.add('hidden'));
+            document.getElementById('modal-room').classList.remove('hidden');
+
+            if (activeRoomId) {
+                document.getElementById('room-entry-section').classList.add('hidden');
+                document.getElementById('room-waiting-section').classList.remove('hidden');
+                renderChallengeRoomSlots();
+            } else {
+                document.getElementById('room-entry-section').classList.remove('hidden');
+                document.getElementById('room-waiting-section').classList.add('hidden');
+            }
+        };
+
+        window.createChallengeRoom = async function () {
+            const code = Math.floor(1000 + Math.random() * 9000).toString();
+            activeRoomId = code;
+            activeRoomData = {
+                roomId: code,
+                hostUid: playerProfile.uid,
+                maxPlayers: selectedMatchMode,
+                status: 'waiting',
+                players: [
+                    { uid: playerProfile.uid, name: playerProfile.name, avatar: playerProfile.avatar, isBot: false }
+                ]
+            };
+
+            if (db && currentUser) {
+                try {
+                    const rRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code);
+                    await setDoc(rRef, activeRoomData);
+                    subscribeRoomDoc(code);
+                } catch (e) {}
+            }
+
+            document.getElementById('room-entry-section').classList.add('hidden');
+            document.getElementById('room-waiting-section').classList.remove('hidden');
+            renderChallengeRoomSlots();
+            showToast(`Đã tạo phòng thách đấu ID: ${code}`, "success");
+        };
+
+        window.joinChallengeRoom = async function () {
+            const code = document.getElementById('input-room-id').value.trim().toUpperCase();
+            if (code.length < 3) {
+                showToast("Vui lòng nhập mã ID phòng hợp lệ!", "error");
+                return;
+            }
+            activeRoomId = code;
+
+            if (db && currentUser) {
+                try {
+                    const rRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code);
+                    const snap = await getDoc(rRef);
+                    if (snap.exists()) {
+                        activeRoomData = snap.data();
+                        if (!activeRoomData.players.some(p => p.uid === playerProfile.uid)) {
+                            activeRoomData.players.push({
+                                uid: playerProfile.uid,
+                                name: playerProfile.name,
+                                avatar: playerProfile.avatar,
+                                isBot: false
+                            });
+                            await setDoc(rRef, activeRoomData);
+                        }
+                        subscribeRoomDoc(code);
+                    }
+                } catch (e) {}
+            }
+
+            if (!activeRoomData) {
+                activeRoomData = {
+                    roomId: code,
+                    hostUid: "host-" + code,
+                    maxPlayers: selectedMatchMode,
+                    status: 'waiting',
+                    players: [
+                        { uid: "host-" + code, name: "CHUPHONG" + code.slice(0,2), avatar: "🐉", isBot: true },
+                        { uid: playerProfile.uid, name: playerProfile.name, avatar: playerProfile.avatar, isBot: false }
+                    ]
+                };
+            }
+
+            document.getElementById('room-entry-section').classList.add('hidden');
+            document.getElementById('room-waiting-section').classList.remove('hidden');
+            renderChallengeRoomSlots();
+            showToast(`Đã tham gia phòng ID: ${code}`, "success");
+        };
+
+        function subscribeRoomDoc(code) {
+            if (!db || !currentUser) return;
+            if (roomUnsubscribe) roomUnsubscribe();
+            const rRef = doc(db, 'artifacts', appId, 'public', 'data', 'rooms', code);
+            roomUnsubscribe = onSnapshot(rRef, (snap) => {
+                if (snap.exists()) {
+                    activeRoomData = snap.data();
+                    renderChallengeRoomSlots();
+                }
+            }, () => {});
+        }
+
+        function renderChallengeRoomSlots() {
+            if (!activeRoomData) return;
+            document.getElementById('active-room-code').textContent = activeRoomData.roomId;
+            document.getElementById('btn-room-size').textContent = `Map ${activeRoomData.maxPlayers} Người`;
+
+            const slotsEl = document.getElementById('room-slots-list');
+            slotsEl.innerHTML = '';
+            for (let i = 0; i < activeRoomData.maxPlayers; i++) {
+                const p = activeRoomData.players[i];
+                const col = TANK_COLORS[i];
+                const slot = document.createElement('div');
+                slot.className = "p-2.5 rounded-xl bg-slate-900 border border-slate-700 flex items-center space-x-2.5";
+                if (p) {
+                    slot.innerHTML = `
+                        <span class="w-4 h-4 rounded-full flex-shrink-0" style="background:${col.hex}"></span>
+                        <span class="text-xl">${p.avatar}</span>
+                        <div class="truncate">
+                            <div class="text-xs font-extrabold text-white truncate">${p.name}</div>
+                            <div class="text-[10px] text-emerald-400">Xe ${col.name} • Sẵn sàng</div>
+                        </div>
+                    `;
+                } else {
+                    slot.innerHTML = `
+                        <span class="w-4 h-4 rounded-full flex-shrink-0 opacity-40" style="background:${col.hex}"></span>
+                        <span class="text-xs text-slate-500 italic">Đang chờ người chơi / Ghép thêm...</span>
+                    `;
+                }
+                slotsEl.appendChild(slot);
+            }
+
+            // Danh sách nút mời bạn bè nhanh
+            const invEl = document.getElementById('room-invite-friends-list');
+            invEl.innerHTML = '';
+            playerProfile.friends.forEach(fn => {
+                const b = document.createElement('button');
+                b.className = "px-3 py-1 rounded-lg bg-slate-800 hover:bg-emerald-600 text-xs font-bold text-slate-200 flex-shrink-0 border border-slate-600";
+                b.textContent = `+ Mời ${fn}`;
+                b.onclick = () => window.inviteFriendToRoom(fn);
+                invEl.appendChild(b);
+            });
+        }
+
+        window.toggleRoomSize = function () {
+            if (!activeRoomData) return;
+            activeRoomData.maxPlayers = activeRoomData.maxPlayers === 4 ? 6 : 4;
+            selectedMatchMode = activeRoomData.maxPlayers;
+            renderChallengeRoomSlots();
+        };
+
+        window.copyRoomCode = function () {
+            if (!activeRoomId) return;
+            const temp = document.createElement('input');
+            temp.value = activeRoomId;
+            document.body.appendChild(temp);
+            temp.select();
+            document.execCommand('copy');
+            temp.remove();
+            showToast(`Đã sao chép mã phòng: ${activeRoomId}`, "success");
+        };
+
+        window.leaveChallengeRoom = function () {
+            if (roomUnsubscribe) roomUnsubscribe();
+            activeRoomId = null;
+            activeRoomData = null;
+            window.closeAllModals();
+        };
+
+        window.startChallengeRoomMatch = function () {
+            const roster = activeRoomData ? [...activeRoomData.players] : [];
+            const maxP = activeRoomData ? activeRoomData.maxPlayers : selectedMatchMode;
+            window.closeAllModals();
+            launchBattleArena(maxP, roster);
+        };
+
+        /*************************************************************************
+         * 8. ENGINE CHIẾN ĐẤU XE TĂNG MÊ CUNG 2D & HỆ THỐNG GHÉP NGẪU NHIÊN (MATCHMAKING)
+         *************************************************************************/
+        const gameCanvas = document.getElementById('gameCanvas');
+        const gCtx = gameCanvas.getContext('2d');
+
+        const CELL_SIZE = 58; // Kích thước mỗi ô mê cung
+        const WALL_THICK = 5;
+
+        let battleState = {
+            active: false,
+            modeCount: 4,
+            maze: MAZE_MAP_4,
+            tanks: [],
+            bullets: [],
+            particles: [],
+            eliminationOrder: [], // Lưu thứ tự bị tiêu diệt để tính hạng 1, 2, 3, 4...
+            keys: {}
+        };
+
+        // Lắng nghe phím WASD và SPACE
+        window.addEventListener('keydown', (e) => {
+            battleState.keys[e.code] = true;
+            if (e.code === 'Space' && battleState.active) {
+                e.preventDefault();
+                initAudio();
+                const myTank = battleState.tanks.find(t => t.isLocal);
+                if (myTank && myTank.alive) tryFireBullet(myTank);
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            battleState.keys[e.code] = false;
+        });
+
+        // Hỗ trợ nút cảm ứng trên mobile
+        document.querySelectorAll('[data-touch-key]').forEach(btn => {
+            const k = btn.getAttribute('data-touch-key');
+            btn.addEventListener('pointerdown', (e) => { e.preventDefault(); battleState.keys[k] = true; });
+            btn.addEventListener('pointerup', (e) => { e.preventDefault(); battleState.keys[k] = false; });
+            btn.addEventListener('pointerleave', (e) => { e.preventDefault(); battleState.keys[k] = false; });
+        });
+
+        const mobileFireBtn = document.getElementById('btn-mobile-fire');
+        if (mobileFireBtn) {
+            mobileFireBtn.addEventListener('pointerdown', (e) => {
+                e.preventDefault();
+                initAudio();
+                const myTank = battleState.tanks.find(t => t.isLocal);
+                if (myTank && myTank.alive) tryFireBullet(myTank);
+            });
+        }
+
+        // HỆ THỐNG GHÉP TRẬN NGẪU NHIÊN (MATCHMAKING QUEUE THỜI GIAN THỰC)
+        let mmPickedPlayers = [];
+
+        window.startQuickMatch = async function () {
+            await initAudio();
+            playSfx('click');
+
+            const targetCount = selectedMatchMode;
+            mmPickedPlayers = [
+                { uid: playerProfile.uid, name: playerProfile.name, avatar: playerProfile.avatar, isBot: false }
+            ];
+
+            // Mở Modal Radar Ghép Ngẫu Nhiên
+            document.getElementById('modal-backdrop').classList.remove('hidden');
+            document.querySelectorAll('#modal-backdrop > div').forEach(el => el.classList.add('hidden'));
+            document.getElementById('modal-matchmaking').classList.remove('hidden');
+
+            // Đăng ký vào hàng đợi Matchmaking trên Cloud & BroadcastChannel
+            const myQueueEntry = {
+                uid: playerProfile.uid,
+                name: playerProfile.name,
+                avatar: playerProfile.avatar,
+                mode: targetCount,
+                rankIndex: playerProfile.rankIndex,
+                timestamp: Date.now()
+            };
+            matchmakingPoolMap.set(playerProfile.uid, myQueueEntry);
+            if (bcChannel) bcChannel.postMessage({ type: 'MM_QUEUE_JOIN', entry: myQueueEntry });
+
+            if (db && currentUser) {
+                try {
+                    const qRef = doc(db, 'artifacts', appId, 'public', 'data', 'matchmaking_queue', playerProfile.uid);
+                    await setDoc(qRef, myQueueEntry);
+                } catch (e) {}
+            }
+
+            renderMatchmakingSlots(targetCount);
+
+            // Quét tìm người chơi thật đang chờ cùng chế độ, nếu thiếu sẽ ghép ngẫu nhiên các chiến binh online khác vào từng slot
+            const candidatePool = getCombinedLeaderboard().filter(p => p.uid !== playerProfile.uid);
+            // Xáo trộn ngẫu nhiên danh sách chiến binh
+            candidatePool.sort(() => Math.random() - 0.5);
+
+            if (matchmakingInterval) clearInterval(matchmakingInterval);
+            matchmakingInterval = setInterval(() => {
+                // Ưu tiên lấy người chơi thật trong hàng đợi matchmakingPoolMap trước
+                for (const [uid, qEntry] of matchmakingPoolMap.entries()) {
+                    if (uid !== playerProfile.uid && qEntry.mode === targetCount && mmPickedPlayers.length < targetCount) {
+                        if (!mmPickedPlayers.some(p => p.uid === uid)) {
+                            mmPickedPlayers.push({
+                                uid: qEntry.uid,
+                                name: qEntry.name,
+                                avatar: qEntry.avatar,
+                                isBot: false
+                            });
+                        }
+                    }
+                }
+
+                // Nếu chưa đủ người, mỗi nhịp 650ms ghép ngẫu nhiên thêm 1 chiến binh vào phòng
+                if (mmPickedPlayers.length < targetCount && candidatePool.length > 0) {
+                    const nextRand = candidatePool.pop();
+                    if (nextRand && !mmPickedPlayers.some(p => p.name === nextRand.name)) {
+                        mmPickedPlayers.push({
+                            uid: nextRand.uid,
+                            name: nextRand.name,
+                            avatar: nextRand.avatar,
+                            isBot: true
+                        });
+                        playSfx('click');
+                    }
+                }
+
+                renderMatchmakingSlots(targetCount);
+
+                if (mmPickedPlayers.length >= targetCount) {
+                    clearInterval(matchmakingInterval);
+                    matchmakingInterval = null;
+                    document.getElementById('mm-status-text').textContent = "✅ Đã ghép đủ đội hình! Chuẩn bị tiến vào mê cung...";
+                    setTimeout(() => {
+                        cleanupMatchmakingQueue();
+                        window.closeAllModals();
+                        launchBattleArena(targetCount, mmPickedPlayers);
+                    }, 700);
+                }
+            }, 650);
+        };
+
+        function renderMatchmakingSlots(targetCount) {
+            const grid = document.getElementById('mm-slots-grid');
+            grid.innerHTML = '';
+            for (let i = 0; i < targetCount; i++) {
+                const p = mmPickedPlayers[i];
+                const col = TANK_COLORS[i];
+                const div = document.createElement('div');
+                div.className = `p-2.5 rounded-xl border flex items-center space-x-2.5 ${p ? 'bg-slate-900 border-emerald-500/60' : 'bg-slate-950/60 border-slate-800'}`;
+                if (p) {
+                    div.innerHTML = `
+                        <span class="w-3.5 h-3.5 rounded-full flex-shrink-0" style="background:${col.hex}"></span>
+                        <span class="text-xl">${p.avatar}</span>
+                        <div class="truncate">
+                            <div class="text-xs font-extrabold text-white truncate">${p.name}</div>
+                            <div class="text-[10px] text-emerald-400">Xe ${col.name} • Đã ghép</div>
+                        </div>
+                    `;
+                } else {
+                    div.innerHTML = `
+                        <span class="w-3.5 h-3.5 rounded-full flex-shrink-0 opacity-30" style="background:${col.hex}"></span>
+                        <span class="text-xs text-slate-500 animate-pulse">Đang tìm người chơi...</span>
+                    `;
+                }
+                grid.appendChild(div);
+            }
+            document.getElementById('mm-counter-text').textContent = `Đã tìm thấy: ${mmPickedPlayers.length}/${targetCount} Chiến Binh`;
+        }
+
+        async function cleanupMatchmakingQueue() {
+            matchmakingPoolMap.delete(playerProfile.uid);
+            if (bcChannel) bcChannel.postMessage({ type: 'MM_QUEUE_LEAVE', uid: playerProfile.uid });
+            if (db && currentUser) {
+                try {
+                    const qRef = doc(db, 'artifacts', appId, 'public', 'data', 'matchmaking_queue', playerProfile.uid);
+                    await deleteDoc(qRef);
+                } catch (e) {}
+            }
+        }
+
+        window.cancelQuickMatch = function () {
+            if (matchmakingInterval) {
+                clearInterval(matchmakingInterval);
+                matchmakingInterval = null;
+            }
+            cleanupMatchmakingQueue();
+            window.closeAllModals();
+            showToast("Đã hủy ghép trận.", "info");
+        };
+
+        function launchBattleArena(modeCount, customPlayers = []) {
+            document.getElementById('lobby-screen').classList.add('hidden');
+            document.getElementById('battle-screen').classList.remove('hidden');
+
+            const maze = modeCount === 6 ? MAZE_MAP_6 : MAZE_MAP_4;
+            battleState.modeCount = modeCount;
+            battleState.maze = maze;
+            battleState.bullets = [];
+            battleState.particles = [];
+            battleState.eliminationOrder = [];
+
+            gameCanvas.width = maze.cols * CELL_SIZE;
+            gameCanvas.height = maze.rows * CELL_SIZE;
+            resizeBattleCanvas();
+
+            // Khởi tạo 4 hoặc 6 xe tăng với đạn ban đầu = 4 (hoặc 6 nếu map 6 người), nạp lại mỗi 5s
+            const initialAmmo = modeCount === 6 ? 6 : 4;
+            const botPool = ["SHADOWX", "DRAGON99", "VNPRO01", "IRONWOLF", "CYBERFOX", "KINGMAZE"];
+            const tanks = [];
+
+            for (let i = 0; i < modeCount; i++) {
+                const sp = maze.spawns[i];
+                const col = TANK_COLORS[i];
+                const isLocal = (i === 0);
+                const customP = customPlayers[i];
+
+                tanks.push({
+                    id: i,
+                    name: isLocal ? playerProfile.name : (customP ? customP.name : botPool[i % botPool.length]),
+                    avatar: isLocal ? playerProfile.avatar : (customP ? customP.avatar : AVATARS[(i + 2) % AVATARS.length]),
+                    color: col,
+                    isLocal,
+                    alive: true,
+                    x: (sp.c + 0.5) * CELL_SIZE,
+                    y: (sp.r + 0.5) * CELL_SIZE,
+                    angle: sp.angle,
+                    radius: 15,
+                    speed: 118,
+                    ammo: initialAmmo,
+                    maxAmmo: initialAmmo,
+                    reloadTimer: 0, // Đếm đến 5.0s để hồi 1 viên đạn
+                    fireCooldown: 0,
+                    kills: 0,
+                    aiTurnTimer: 0,
+                    aiTargetAngle: sp.angle,
+                    aiShootDelay: 0.8 + Math.random() * 1.2
+                });
+            }
+
+            battleState.tanks = tanks;
+            battleState.active = true;
+            updateBattleHUD();
+
+            // Hiển thị thông báo bắt đầu trận
+            const banner = document.getElementById('battle-banner');
+            document.getElementById('battle-banner-title').textContent = `ĐẤU TRƯỜNG ${modeCount} XE TĂNG!`;
+            document.getElementById('battle-banner-sub').textContent = `Chế độ Sương Mù Among Us: Khuất tường là tối hoàn toàn!`;
+            banner.classList.remove('hidden');
+            setTimeout(() => banner.classList.add('hidden'), 1800);
+        }
+
+        function resizeBattleCanvas() {
+            const wrapper = document.getElementById('arena-wrapper');
+            if (!wrapper) return;
+            const availW = wrapper.clientWidth - 12;
+            const availH = wrapper.clientHeight - 12;
+            const aspect = gameCanvas.width / gameCanvas.height;
+            let w = availW;
+            let h = w / aspect;
+            if (h > availH) {
+                h = availH;
+                w = h * aspect;
+            }
+            gameCanvas.style.width = `${Math.floor(w)}px`;
+            gameCanvas.style.height = `${Math.floor(h)}px`;
+        }
+        window.addEventListener('resize', resizeBattleCanvas);
+
+        function tryFireBullet(tank) {
+            if (!tank.alive || tank.ammo <= 0 || tank.fireCooldown > 0) return;
+            tank.ammo -= 1;
+            tank.fireCooldown = 0.28;
+            playSfx('shoot');
+
+            const muzzleDist = tank.radius + 7;
+            battleState.bullets.push({
+                ownerId: tank.id,
+                color: tank.color.hex,
+                x: tank.x + Math.cos(tank.angle) * muzzleDist,
+                y: tank.y + Math.sin(tank.angle) * muzzleDist,
+                vx: Math.cos(tank.angle) * 235,
+                vy: Math.sin(tank.angle) * 235,
+                radius: 4.5,
+                bouncesLeft: 4,
+                life: 5.5
+            });
+
+            if (tank.isLocal) updateBattleHUD();
+        }
+
+        // Va chạm hình tròn (Xe tăng) với các đoạn thẳng tường mê cung
+        function resolveTankMazeCollision(tank) {
+            const maze = battleState.maze;
+            const r = tank.radius + WALL_THICK / 2;
+
+            // Kiểm tra biên ngoài
+            tank.x = Math.max(r, Math.min(maze.cols * CELL_SIZE - r, tank.x));
+            tank.y = Math.max(r, Math.min(maze.rows * CELL_SIZE - r, tank.y));
+
+            // Kiểm tra các tường ngang (H)
+            for (let row = 0; row <= maze.rows; row++) {
+                for (let col = 0; col < maze.cols; col++) {
+                    if (maze.H[row][col] === 1) {
+                        const x1 = col * CELL_SIZE;
+                        const x2 = (col + 1) * CELL_SIZE;
+                        const y = row * CELL_SIZE;
+                        pushCircleFromSegment(tank, x1, y, x2, y, r);
+                    }
+                }
+            }
+
+            // Kiểm tra các tường dọc (V)
+            for (let row = 0; row < maze.rows; row++) {
+                for (let col = 0; col <= maze.cols; col++) {
+                    if (maze.V[row][col] === 1) {
+                        const x = col * CELL_SIZE;
+                        const y1 = row * CELL_SIZE;
+                        const y2 = (row + 1) * CELL_SIZE;
+                        pushCircleFromSegment(tank, x, y1, x, y2, r);
+                    }
+                }
+            }
+        }
+
+        function pushCircleFromSegment(obj, x1, y1, x2, y2, minDist) {
+            const dx = x2 - x1;
+            const dy = y2 - y1;
+            const lenSq = dx * dx + dy * dy;
+            let t = 0;
+            if (lenSq > 0) {
+                t = ((obj.x - x1) * dx + (obj.y - y1) * dy) / lenSq;
+                t = Math.max(0, Math.min(1, t));
+            }
+            const nearX = x1 + t * dx;
+            const nearY = y1 + t * dy;
+            const distX = obj.x - nearX;
+            const distY = obj.y - nearY;
+            const dist = Math.hypot(distX, distY);
+
+            if (dist < minDist && dist > 0.0001) {
+                const overlap = minDist - dist;
+                obj.x += (distX / dist) * overlap;
+                obj.y += (distY / dist) * overlap;
+            }
+        }
+
+        // Phản xạ đạn khi chạm tường mê cung
+        function updateBulletAndBounce(b, dt) {
+            const maze = battleState.maze;
+            const prevX = b.x;
+            const prevY = b.y;
+            const nextX = b.x + b.vx * dt;
+            const nextY = b.y + b.vy * dt;
+
+            const prevCol = Math.floor(prevX / CELL_SIZE);
+            const prevRow = Math.floor(prevY / CELL_SIZE);
+            const nextCol = Math.floor(nextX / CELL_SIZE);
+            const nextRow = Math.floor(nextY / CELL_SIZE);
+
+            let bounced = false;
+
+            // Vượt qua ranh giới cột dọc
+            if (nextCol !== prevCol) {
+                const wallCol = Math.max(prevCol, nextCol);
+                if (prevRow >= 0 && prevRow < maze.rows && wallCol >= 0 && wallCol <= maze.cols) {
+                    if (maze.V[prevRow][wallCol] === 1) {
+                        b.vx = -b.vx;
+                        bounced = true;
+                    }
+                }
+            }
+
+            // Vượt qua ranh giới hàng ngang
+            if (nextRow !== prevRow) {
+                const wallRow = Math.max(prevRow, nextRow);
+                if (prevCol >= 0 && prevCol < maze.cols && wallRow >= 0 && wallRow <= maze.rows) {
+                    if (maze.H[wallRow][prevCol] === 1) {
+                        b.vy = -b.vy;
+                        bounced = true;
+                    }
+                }
+            }
+
+            if (bounced) {
+                b.bouncesLeft -= 1;
+                playSfx('bounce');
+            } else {
+                b.x = nextX;
+                b.y = nextY;
+            }
+        }
+
+        function updateBattle(dt) {
+            if (!battleState.active) return;
+
+            // 1. Cập nhật từng xe tăng
+            for (const tank of battleState.tanks) {
+                if (!tank.alive) continue;
+
+                if (tank.fireCooldown > 0) tank.fireCooldown -= dt;
+
+                // Cơ chế nạp đạn sau mỗi 5 giây
+                if (tank.ammo < tank.maxAmmo) {
+                    tank.reloadTimer += dt;
+                    if (tank.reloadTimer >= 5.0) {
+                        tank.ammo += 1;
+                        tank.reloadTimer = 0;
+                        if (tank.isLocal) updateBattleHUD();
+                    }
+                } else {
+                    tank.reloadTimer = 0;
+                }
+
+                if (tank.isLocal) {
+                    // Điều khiển bằng WASD theo 4 hướng hoặc 8 hướng mượt mà
+                    let mx = 0;
+                    let my = 0;
+                    if (battleState.keys['KeyW'] || battleState.keys['ArrowUp']) my -= 1;
+                    if (battleState.keys['KeyS'] || battleState.keys['ArrowDown']) my += 1;
+                    if (battleState.keys['KeyA'] || battleState.keys['ArrowLeft']) mx -= 1;
+                    if (battleState.keys['KeyD'] || battleState.keys['ArrowRight']) mx += 1;
+
+                    if (mx !== 0 || my !== 0) {
+                        const targetAngle = Math.atan2(my, mx);
+                        tank.angle = targetAngle;
+                        const len = Math.hypot(mx, my);
+                        tank.x += (mx / len) * tank.speed * dt;
+                        tank.y += (my / len) * tank.speed * dt;
+                    }
+                } else {
+                    // AI điều khiển các xe tăng đối phương di chuyển trong mê cung & bắn
+                    updateAITank(tank, dt);
+                }
+
+                resolveTankMazeCollision(tank);
+            }
+
+            // 2. Cập nhật đường đạn và kiểm tra tiêu diệt xe tăng
+            for (let i = battleState.bullets.length - 1; i >= 0; i--) {
+                const b = battleState.bullets[i];
+                b.life -= dt;
+                updateBulletAndBounce(b, dt);
+
+                if (b.life <= 0 || b.bouncesLeft < 0) {
+                    battleState.bullets.splice(i, 1);
+                    continue;
+                }
+
+                // Kiểm tra trúng xe tăng
+                for (const tank of battleState.tanks) {
+                    if (!tank.alive) continue;
+                    // Tránh tự bắn trúng mình ngay lúc đạn vừa ra khỏi nòng
+                    if (tank.id === b.ownerId && b.life > 5.25) continue;
+
+                    const dist = Math.hypot(tank.x - b.x, tank.y - b.y);
+                    if (dist < tank.radius + b.radius) {
+                        // Xe tăng bị phá hủy!
+                        tank.alive = false;
+                        battleState.eliminationOrder.push(tank.id);
+                        battleState.bullets.splice(i, 1);
+                        playSfx('explode');
+
+                        // Cộng điểm phá hủy cho chủ nhân viên đạn
+                        const shooter = battleState.tanks.find(t => t.id === b.ownerId);
+                        if (shooter && shooter.id !== tank.id) {
+                            shooter.kills += 1;
+                        }
+
+                        // Hiệu ứng nổ
+                        for (let p = 0; p < 24; p++) {
+                            const ang = Math.random() * Math.PI * 2;
+                            const spd = 40 + Math.random() * 140;
+                            battleState.particles.push({
+                                x: tank.x,
+                                y: tank.y,
+                                vx: Math.cos(ang) * spd,
+                                vy: Math.sin(ang) * spd,
+                                color: tank.color.hex,
+                                size: 3 + Math.random() * 4,
+                                life: 0.6 + Math.random() * 0.4
+                            });
+                        }
+
+                        updateBattleHUD();
+                        checkMatchEndCondition();
+                        break;
+                    }
+                }
+            }
+
+            // 3. Cập nhật thanh đếm ngược 5s nạp đạn trên HUD
+            const myTank = battleState.tanks.find(t => t.isLocal);
+            if (myTank) {
+                const remain = myTank.ammo < myTank.maxAmmo ? (5.0 - myTank.reloadTimer).toFixed(1) + "s" : "Đầy";
+                document.getElementById('hud-reload-timer').textContent = remain;
+                const pct = myTank.ammo < myTank.maxAmmo ? (myTank.reloadTimer / 5.0) * 100 : 100;
+                document.getElementById('hud-reload-bar').style.width = `${pct}%`;
+            }
+
+            // 4. Hạt nổ
+            for (let i = battleState.particles.length - 1; i >= 0; i--) {
+                const pt = battleState.particles[i];
+                pt.x += pt.vx * dt;
+                pt.y += pt.vy * dt;
+                pt.life -= dt;
+                if (pt.life <= 0) battleState.particles.splice(i, 1);
+            }
+        }
+
+        function updateAITank(bot, dt) {
+            // Tìm mục tiêu gần nhất còn sống
+            let nearest = null;
+            let minDist = 999999;
+            for (const other of battleState.tanks) {
+                if (!other.alive || other.id === bot.id) continue;
+                const d = Math.hypot(other.x - bot.x, other.y - bot.y);
+                if (d < minDist) {
+                    minDist = d;
+                    nearest = other;
+                }
+            }
+
+            bot.aiTurnTimer -= dt;
+            const prevX = bot.x;
+            const prevY = bot.y;
+
+            if (bot.aiTurnTimer <= 0) {
+                const cardinalAngles = [0, Math.PI / 2, Math.PI, -Math.PI / 2];
+                if (nearest && Math.random() < 0.65) {
+                    const dx = nearest.x - bot.x;
+                    const dy = nearest.y - bot.y;
+                    if (Math.abs(dx) > Math.abs(dy)) {
+                        bot.aiTargetAngle = dx > 0 ? 0 : Math.PI;
+                    } else {
+                        bot.aiTargetAngle = dy > 0 ? Math.PI / 2 : -Math.PI / 2;
+                    }
+                } else {
+                    bot.aiTargetAngle = cardinalAngles[Math.floor(Math.random() * cardinalAngles.length)];
+                }
+                bot.aiTurnTimer = 0.7 + Math.random() * 0.9;
+            }
+
+            bot.angle = bot.aiTargetAngle;
+            bot.x += Math.cos(bot.angle) * (bot.speed * 0.85) * dt;
+            bot.y += Math.sin(bot.angle) * (bot.speed * 0.85) * dt;
+
+            resolveTankMazeCollision(bot);
+            // Nếu đâm tường không nhúc nhích được thì đổi hướng ngay
+            if (Math.hypot(bot.x - prevX, bot.y - prevY) < 0.3) {
+                bot.aiTurnTimer = 0;
+            }
+
+            // AI ngắm và bắn khi gần mục tiêu
+            bot.aiShootDelay -= dt;
+            if (bot.aiShootDelay <= 0 && nearest && minDist < CELL_SIZE * 4.5) {
+                bot.angle = Math.atan2(nearest.y - bot.y, nearest.x - bot.x);
+                tryFireBullet(bot);
+                bot.aiShootDelay = 1.2 + Math.random() * 1.5;
+            }
+        }
+
+        function checkMatchEndCondition() {
+            const aliveTanks = battleState.tanks.filter(t => t.alive);
+            const myTank = battleState.tanks.find(t => t.isLocal);
+
+            // Kết thúc khi chỉ còn <= 1 xe sống sót HOẶC người chơi đã bị hạ
+            if (aliveTanks.length <= 1 || (myTank && !myTank.alive)) {
+                battleState.active = false;
+
+                // Tính thứ hạng của người chơi
+                let myPlace = 1;
+                if (myTank && !myTank.alive) {
+                    const elimIdx = battleState.eliminationOrder.indexOf(myTank.id);
+                    myPlace = battleState.modeCount - elimIdx;
+                } else {
+                    myPlace = 1;
+                }
+
+                const myKills = myTank ? myTank.kills : 0;
+                const outcome = processMatchOutcome(myPlace, myKills, battleState.modeCount);
+
+                setTimeout(() => {
+                    showMatchResultModal(myPlace, myKills, outcome.isWin, outcome.rankUpMsg);
+                }, 650);
+            }
+        }
+
+        function showMatchResultModal(place, kills, isWin, rankUpMsg) {
+            if (isWin) playSfx('win');
+            document.getElementById('modal-backdrop').classList.remove('hidden');
+            document.querySelectorAll('#modal-backdrop > div').forEach(el => el.classList.add('hidden'));
+            const modal = document.getElementById('modal-result');
+            modal.classList.remove('hidden');
+
+            document.getElementById('result-icon').textContent = isWin ? "🏆" : "💥";
+            const titleEl = document.getElementById('result-title');
+            titleEl.textContent = isWin ? "THẮNG TRẬN!" : "CHƯA ĐẠT ĐIỀU KIỆN THẮNG";
+            titleEl.className = `text-2xl font-black uppercase ${isWin ? 'text-emerald-400' : 'text-rose-400'}`;
+
+            document.getElementById('result-subtitle').textContent = isWin
+                ? (place === 1 ? "Bạn đã xuất sắc Về Nhất (Top 1) trên đấu trường!" : "Bạn đạt Hạng 2 và phá hủy đủ 2 xe tăng nên được tính THẮNG!")
+                : "Hãy cố gắng đạt Hạng 1 hoặc đạt Hạng 2 kèm phá hủy ít nhất 2 xe tăng!";
+
+            const curRank = RANKS[playerProfile.rankIndex];
+            document.getElementById('result-stats-box').innerHTML = `
+                <div class="flex justify-between"><span>Thứ hạng trận này:</span><b class="text-amber-300">Hạng #${place}/${battleState.modeCount}</b></div>
+                <div class="flex justify-between"><span>Số xe tăng phá hủy:</span><b class="text-rose-400">${kills} xe</b></div>
+                <div class="flex justify-between"><span>Hạng hiện tại:</span><b class="text-cyan-300">${curRank.icon} Hạng ${curRank.name}</b></div>
+                <div class="flex justify-between"><span>Thắng ở bậc hiện tại:</span><b class="text-emerald-400">${playerProfile.tierWins}/${curRank.reqWins} ván</b></div>
+                <div class="flex justify-between"><span>Chuỗi thắng liên tiếp:</span><b class="text-amber-400">${playerProfile.currentStreak} 🔥</b></div>
+                <div class="flex justify-between border-t border-slate-700 pt-1"><span>Tổng số ván thắng tích lũy:</span><b class="text-white">${playerProfile.totalWins} ván</b></div>
+                ${rankUpMsg ? `<div class="mt-2 p-2 rounded-lg bg-amber-500/20 border border-amber-400 text-amber-300 font-bold text-center">${rankUpMsg}</div>` : ''}
+            `;
+        }
+
+        window.closeResultAndReturn = function () {
+            window.closeAllModals();
+            document.getElementById('battle-screen').classList.add('hidden');
+            document.getElementById('lobby-screen').classList.remove('hidden');
+            updateAllLobbyUI();
+        };
+
+        window.leaveMatch = function () {
+            battleState.active = false;
+            document.getElementById('battle-screen').classList.add('hidden');
+            document.getElementById('lobby-screen').classList.remove('hidden');
+            updateAllLobbyUI();
+        };
+
+        function updateBattleHUD() {
+            const myTank = battleState.tanks.find(t => t.isLocal);
+            if (!myTank) return;
+
+            document.getElementById('hud-player-name').textContent = myTank.name;
+            document.getElementById('hud-kills').textContent = `💥 ${myTank.kills}`;
+
+            const ammoBox = document.getElementById('hud-ammo-icons');
+            ammoBox.innerHTML = '';
+            for (let i = 0; i < myTank.maxAmmo; i++) {
+                const span = document.createElement('span');
+                span.className = `inline-block w-3 h-4 rounded-sm ${i < myTank.ammo ? 'bg-amber-400 shadow-[0_0_6px_#fbbf24]' : 'bg-slate-700'}`;
+                ammoBox.appendChild(span);
+            }
+
+            const statusBox = document.getElementById('hud-tanks-status');
+            statusBox.innerHTML = '';
+            battleState.tanks.forEach(t => {
+                const badge = document.createElement('div');
+                badge.className = `px-2.5 py-1 rounded-lg border flex items-center space-x-1.5 text-xs font-bold flex-shrink-0 ${t.alive ? 'bg-slate-900 border-slate-600 text-white' : 'bg-slate-950 border-slate-800 text-slate-500 line-through opacity-60'}`;
+                badge.innerHTML = `
+                    <span class="w-3 h-3 rounded-full" style="background:${t.color.hex}"></span>
+                    <span>${t.name}</span>
+                    <span class="text-rose-400">(${t.kills})</span>
+                `;
+                statusBox.appendChild(badge);
+            });
+        }
+
+        /*************************************************************************
+         * 9. VẼ MÊ CUNG HÌNH 1-2 & XE TĂNG 2D HOẠT HÌNH
+         *************************************************************************/
+        function drawTankUnit(ctx, x, y, angle, colorObj, name, isAlive = true) {
+            ctx.save();
+            ctx.translate(x, y);
+
+            // Tên phía trên xe tăng
+            if (name) {
+                ctx.font = "bold 10px Inter, sans-serif";
+                ctx.textAlign = "center";
+                ctx.fillStyle = "#0f172a";
+                ctx.fillText(name, 0, -22);
+            }
+
+            ctx.rotate(angle);
+
+            // Hai bánh xích đen hai bên
+            ctx.fillStyle = "#1e293b";
+            ctx.fillRect(-15, -14, 30, 6);
+            ctx.fillRect(-15, 8, 30, 6);
+
+            // Vân bánh xích
+            ctx.fillStyle = "#475569";
+            for (let tx = -12; tx <= 10; tx += 6) {
+                ctx.fillRect(tx, -14, 3, 6);
+                ctx.fillRect(tx, 8, 3, 6);
+            }
+
+            // Thân xe tăng chính (4 màu Xanh - Đỏ - Tím - Vàng)
+            ctx.fillStyle = colorObj.hex;
+            ctx.strokeStyle = "#0f172a";
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.roundRect(-13, -10, 26, 20, 4);
+            ctx.fill();
+            ctx.stroke();
+
+            // Nòng pháo hướng về phía trước
+            ctx.fillStyle = colorObj.dark;
+            ctx.fillRect(4, -3.5, 16, 7);
+            ctx.strokeRect(4, -3.5, 16, 7);
+
+            // Tháp pháo tròn ở tâm
+            ctx.fillStyle = colorObj.light;
+            ctx.beginPath();
+            ctx.arc(0, 0, 7.5, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            ctx.restore();
+        }
+
+        /*************************************************************************
+         * HỆ THỐNG TẦM NHÌN KHUẤT TƯỜNG (AMONG US RAYCASTING VISION / FOG OF WAR)
+         *************************************************************************/
+        const VISION_RADIUS = CELL_SIZE * 3.15; // Bán kính tầm nhìn quanh xe tăng người chơi
+
+        // Lấy danh sách tất cả đoạn thẳng tường mê cung để tính bóng cản tầm nhìn
+        function getMazeWallSegments(maze) {
+            if (maze._cachedSegments) return maze._cachedSegments;
+            const segs = [];
+            for (let r = 0; r <= maze.rows; r++) {
+                for (let c = 0; c < maze.cols; c++) {
+                    if (maze.H[r][c] === 1) {
+                        segs.push({
+                            x1: c * CELL_SIZE,
+                            y1: r * CELL_SIZE,
+                            x2: (c + 1) * CELL_SIZE,
+                            y2: r * CELL_SIZE
+                        });
+                    }
+                }
+            }
+            for (let r = 0; r < maze.rows; r++) {
+                for (let c = 0; c <= maze.cols; c++) {
+                    if (maze.V[r][c] === 1) {
+                        segs.push({
+                            x1: c * CELL_SIZE,
+                            y1: r * CELL_SIZE,
+                            x2: c * CELL_SIZE,
+                            y2: (r + 1) * CELL_SIZE
+                        });
+                    }
+                }
+            }
+            maze._cachedSegments = segs;
+            return segs;
+        }
+
+        // Giao điểm giữa tia nhìn (ox, oy) -> góc (dx, dy) và đoạn tường (x1, y1)-(x2, y2)
+        function castSingleVisionRay(ox, oy, dx, dy, maxDist, segments) {
+            let closestT = maxDist;
+            for (let i = 0; i < segments.length; i++) {
+                const s = segments[i];
+                const sx = s.x2 - s.x1;
+                const sy = s.y2 - s.y1;
+                const rxs = dx * sy - dy * sx;
+                if (Math.abs(rxs) < 1e-8) continue;
+
+                const qpx = s.x1 - ox;
+                const qpy = s.y1 - oy;
+                const t = (qpx * sy - qpy * sx) / rxs;
+                const u = (qpx * dy - qpy * dx) / rxs;
+
+                if (t >= 0 && t < closestT && u >= 0 && u <= 1) {
+                    closestT = t;
+                }
+            }
+            return {
+                x: ox + dx * closestT,
+                y: oy + dy * closestT
+            };
+        }
+
+        // Tạo đa giác vùng nhìn thấy thực tế (bị chắn bởi các bức tường mê cung như Among Us)
+        function computeVisibilityPolygon(ox, oy, maze) {
+            const segments = getMazeWallSegments(maze);
+            const angles = [];
+
+            // Quét vòng tròn 360 độ mịn + quét vào các góc mút tường gần người chơi để bóng đổ sắc nét
+            const steps = 120;
+            for (let i = 0; i < steps; i++) {
+                angles.push((i * Math.PI * 2) / steps);
+            }
+
+            const maxCornerCheck = VISION_RADIUS + CELL_SIZE;
+            for (let r = 0; r <= maze.rows; r++) {
+                for (let c = 0; c <= maze.cols; c++) {
+                    const vx = c * CELL_SIZE;
+                    const vy = r * CELL_SIZE;
+                    if (Math.hypot(vx - ox, vy - oy) <= maxCornerCheck) {
+                        const a = Math.atan2(vy - oy, vx - ox);
+                        angles.push(a - 0.0005, a, a + 0.0005);
+                    }
+                }
+            }
+
+            angles.sort((a, b) => a - b);
+
+            const poly = [];
+            for (let i = 0; i < angles.length; i++) {
+                const ang = angles[i];
+                const pt = castSingleVisionRay(ox, oy, Math.cos(ang), Math.sin(ang), VISION_RADIUS, segments);
+                poly.push(pt);
+            }
+            return poly;
+        }
+
+        function drawSpawnMarkers(ctx, maze, showLabels = false) {
+            for (let i = 0; i < battleState.modeCount; i++) {
+                const sp = maze.spawns[i];
+                const col = TANK_COLORS[i];
+                const sx = (sp.c + 0.5) * CELL_SIZE;
+                const sy = (sp.r + 0.5) * CELL_SIZE;
+
+                ctx.save();
+                ctx.translate(sx, sy);
+
+                // Vòng tròn vị trí xuất phát
+                ctx.strokeStyle = col.hex;
+                ctx.lineWidth = 2;
+                ctx.setLineDash([4, 3]);
+                ctx.beginPath();
+                ctx.arc(0, 0, 19, 0, Math.PI * 2);
+                ctx.stroke();
+
+                ctx.fillStyle = col.hex + "28";
+                ctx.beginPath();
+                ctx.arc(0, 0, 17, 0, Math.PI * 2);
+                ctx.fill();
+
+                if (showLabels) {
+                    ctx.setLineDash([]);
+                    ctx.font = "bold 9px Inter, sans-serif";
+                    ctx.textAlign = "center";
+                    ctx.fillStyle = col.light;
+                    ctx.fillText(`XUẤT PHÁT ${col.name.toUpperCase()}`, 0, 27);
+                }
+                ctx.restore();
+            }
+        }
+
+        function drawMazeWallsLines(ctx, maze, strokeColor, lineWidth) {
+            ctx.strokeStyle = strokeColor;
+            ctx.lineWidth = lineWidth;
+            ctx.lineCap = "square";
+
+            ctx.beginPath();
+            for (let r = 0; r <= maze.rows; r++) {
+                for (let c = 0; c < maze.cols; c++) {
+                    if (maze.H[r][c] === 1) {
+                        ctx.moveTo(c * CELL_SIZE, r * CELL_SIZE);
+                        ctx.lineTo((c + 1) * CELL_SIZE, r * CELL_SIZE);
+                    }
+                }
+            }
+            for (let r = 0; r < maze.rows; r++) {
+                for (let c = 0; c <= maze.cols; c++) {
+                    if (maze.V[r][c] === 1) {
+                        ctx.moveTo(c * CELL_SIZE, r * CELL_SIZE);
+                        ctx.lineTo(c * CELL_SIZE, (r + 1) * CELL_SIZE);
+                    }
+                }
+            }
+            ctx.stroke();
+        }
+
+        function renderBattleScene() {
+            const maze = battleState.maze;
+            const myTank = battleState.tanks.find(t => t.isLocal) || battleState.tanks[0];
+
+            // 1. VÙNG NGOÀI TẦM NHÌN: Tối hoàn toàn (#020617), chỉ hiện khung bản đồ mê cung & các điểm vị trí bắt đầu
+            gCtx.fillStyle = "#020617";
+            gCtx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+            // Lưới mê cung chìm trong bóng tối
+            gCtx.strokeStyle = "rgba(30, 41, 59, 0.45)";
+            gCtx.lineWidth = 1;
+            for (let c = 0; c <= maze.cols; c++) {
+                gCtx.beginPath();
+                gCtx.moveTo(c * CELL_SIZE, 0);
+                gCtx.lineTo(c * CELL_SIZE, gameCanvas.height);
+                gCtx.stroke();
+            }
+            for (let r = 0; r <= maze.rows; r++) {
+                gCtx.beginPath();
+                gCtx.moveTo(0, r * CELL_SIZE);
+                gCtx.lineTo(gameCanvas.width, r * CELL_SIZE);
+                gCtx.stroke();
+            }
+
+            // Hiển thị vị trí bắt đầu của các xe tăng trên bản đồ tối
+            drawSpawnMarkers(gCtx, maze, true);
+
+            // Vẽ sơ đồ tường mê cung nổi trên nền tối để người chơi nắm được đường đi
+            drawMazeWallsLines(gCtx, maze, "#334155", WALL_THICK);
+
+            // 2. VÙNG TRONG TẦM NHÌN (Cắt Clip theo Đa Giác Ánh Sáng Raycasting từ xe tăng của bạn)
+            if (myTank) {
+                const visionPoly = computeVisibilityPolygon(myTank.x, myTank.y, maze);
+
+                gCtx.save();
+                gCtx.beginPath();
+                if (visionPoly.length > 0) {
+                    gCtx.moveTo(visionPoly[0].x, visionPoly[0].y);
+                    for (let i = 1; i < visionPoly.length; i++) {
+                        gCtx.lineTo(visionPoly[i].x, visionPoly[i].y);
+                    }
+                    gCtx.closePath();
+                }
+                gCtx.clip();
+
+                // Sàn sáng rõ bên trong tầm nhìn của người chơi
+                const lightGrad = gCtx.createRadialGradient(
+                    myTank.x, myTank.y, 12,
+                    myTank.x, myTank.y, VISION_RADIUS
+                );
+                lightGrad.addColorStop(0, "#ffffff");
+                lightGrad.addColorStop(0.75, "#f1f5f9");
+                lightGrad.addColorStop(1, "#cbd5e1");
+                gCtx.fillStyle = lightGrad;
+                gCtx.fillRect(0, 0, gameCanvas.width, gameCanvas.height);
+
+                // Lưới sàn trong vùng sáng
+                gCtx.strokeStyle = "#cbd5e1";
+                gCtx.lineWidth = 1;
+                for (let c = 0; c <= maze.cols; c++) {
+                    gCtx.beginPath();
+                    gCtx.moveTo(c * CELL_SIZE, 0);
+                    gCtx.lineTo(c * CELL_SIZE, gameCanvas.height);
+                    gCtx.stroke();
+                }
+                for (let r = 0; r <= maze.rows; r++) {
+                    gCtx.beginPath();
+                    gCtx.moveTo(0, r * CELL_SIZE);
+                    gCtx.lineTo(gameCanvas.width, r * CELL_SIZE);
+                    gCtx.stroke();
+                }
+
+                // Điểm xuất phát khi được chiếu sáng
+                drawSpawnMarkers(gCtx, maze, false);
+
+                // Các viên đạn (CHỈ HIỆN KHI BAY VÀO TRONG VÙNG NHÌN THẤY)
+                for (const b of battleState.bullets) {
+                    gCtx.fillStyle = "#0f172a";
+                    gCtx.beginPath();
+                    gCtx.arc(b.x, b.y, b.radius, 0, Math.PI * 2);
+                    gCtx.fill();
+                }
+
+                // Các xe tăng địch (CHỈ HIỆN KHI LỌT VÀO TẦM NHÌN KHÔNG BỊ TƯỜNG CHẮN)
+                for (const t of battleState.tanks) {
+                    if (!t.alive) continue;
+                    drawTankUnit(gCtx, t.x, t.y, t.angle, t.color, t.name, true);
+                }
+
+                // Hạt hiệu ứng nổ trong tầm nhìn
+                for (const pt of battleState.particles) {
+                    gCtx.fillStyle = pt.color;
+                    gCtx.fillRect(pt.x - pt.size / 2, pt.y - pt.size / 2, pt.size, pt.size);
+                }
+
+                // Tường đen sắc nét trong vùng sáng
+                drawMazeWallsLines(gCtx, maze, "#090d16", WALL_THICK);
+
+                gCtx.restore();
+
+                // Vẽ viền ánh sáng dịu quanh mép vùng tầm nhìn
+                if (visionPoly.length > 0) {
+                    gCtx.save();
+                    gCtx.strokeStyle = "rgba(56, 189, 248, 0.25)";
+                    gCtx.lineWidth = 2;
+                    gCtx.beginPath();
+                    gCtx.moveTo(visionPoly[0].x, visionPoly[0].y);
+                    for (let i = 1; i < visionPoly.length; i++) {
+                        gCtx.lineTo(visionPoly[i].x, visionPoly[i].y);
+                    }
+                    gCtx.closePath();
+                    gCtx.stroke();
+                    gCtx.restore();
+                }
+            }
+        }
+
+        /*************************************************************************
+         * 10. BACKGROUND XE TĂNG HOẠT HÌNH CHẠY NGOÀI SẢNH CHÍNH
+         *************************************************************************/
+        const bgCanvas = document.getElementById('bgCanvas');
+        const bgCtx = bgCanvas.getContext('2d');
+        const bgTanks = [];
+
+        function initCartoonBackground() {
+            const resizeBg = () => {
+                bgCanvas.width = window.innerWidth;
+                bgCanvas.height = window.innerHeight;
+            };
+            resizeBg();
+            window.addEventListener('resize', resizeBg);
+
+            for (let i = 0; i < 6; i++) {
+                bgTanks.push({
+                    x: Math.random() * bgCanvas.width,
+                    y: Math.random() * bgCanvas.height,
+                    angle: (Math.floor(Math.random() * 4) * Math.PI) / 2,
+                    speed: 35 + Math.random() * 35,
+                    color: TANK_COLORS[i % TANK_COLORS.length],
+                    turnTimer: 2 + Math.random() * 3
+                });
+            }
+        }
+
+        function updateAndDrawBackground(dt) {
+            bgCtx.fillStyle = "#0b1120";
+            bgCtx.fillRect(0, 0, bgCanvas.width, bgCanvas.height);
+
+            // Họa tiết lưới mê cung trang trí chìm phía sau sảnh
+            bgCtx.strokeStyle = "rgba(56, 189, 248, 0.06)";
+            bgCtx.lineWidth = 2;
+            const step = 64;
+            for (let x = 0; x < bgCanvas.width; x += step) {
+                bgCtx.beginPath();
+                bgCtx.moveTo(x, 0);
+                bgCtx.lineTo(x, bgCanvas.height);
+                bgCtx.stroke();
+            }
+            for (let y = 0; y < bgCanvas.height; y += step) {
+                bgCtx.beginPath();
+                bgCtx.moveTo(0, y);
+                bgCtx.lineTo(bgCanvas.width, y);
+                bgCtx.stroke();
+            }
+
+            // Vẽ các xe tăng hoạt hình tuần tra dưới nền
+            bgCtx.save();
+            bgCtx.globalAlpha = 0.28;
+            for (const bt of bgTanks) {
+                bt.turnTimer -= dt;
+                if (bt.turnTimer <= 0) {
+                    bt.angle += (Math.random() < 0.5 ? 1 : -1) * (Math.PI / 2);
+                    bt.turnTimer = 2.5 + Math.random() * 3;
+                }
+                bt.x += Math.cos(bt.angle) * bt.speed * dt;
+                bt.y += Math.sin(bt.angle) * bt.speed * dt;
+
+                if (bt.x < -40) bt.x = bgCanvas.width + 40;
+                if (bt.x > bgCanvas.width + 40) bt.x = -40;
+                if (bt.y < -40) bt.y = bgCanvas.height + 40;
+                if (bt.y > bgCanvas.height + 40) bt.y = -40;
+
+                drawTankUnit(bgCtx, bt.x, bt.y, bt.angle, bt.color, "");
+            }
+            bgCtx.restore();
+        }
+
+        /*************************************************************************
+         * KHỞI CHẠY VÒNG LẶP CHÍNH
+         *************************************************************************/
+        window.onload = function () {
+            initCartoonBackground();
+            initFirebaseOnline();
+
+            let lastTime = performance.now();
+            function mainLoop(now) {
+                const dt = Math.min(0.05, (now - lastTime) / 1000);
+                lastTime = now;
+
+                if (battleState.active) {
+                    updateBattle(dt);
+                    renderBattleScene();
+                } else {
+                    updateAndDrawBackground(dt);
+                }
+
+                requestAnimationFrame(mainLoop);
+            }
+            requestAnimationFrame(mainLoop);
+        };
+    </script>
+</body>
+</html>
